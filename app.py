@@ -75,6 +75,50 @@ def export_csv(inputs: ModelInputs):
     )
 
 
+@app.post("/api/export/pptx")
+def export_pptx(inputs: ModelInputs):
+    from export_pptx import create_pptx
+    result = calculate(inputs)
+    output = create_pptx(result, inputs.model_dump())
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type='application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        headers={'Content-Disposition': 'attachment; filename="wss_scenarios.pptx"'},
+    )
+
+
+@app.post("/api/export/xlsx")
+def export_xlsx(inputs: ModelInputs):
+    from openpyxl import Workbook
+    result = calculate(inputs)
+    wb = Workbook()
+
+    for sector_key, sector_name in [('water_supply', 'Water Supply'), ('sanitation', 'Sanitation')]:
+        ws = wb.create_sheet(title=sector_name)
+        sec = result[sector_key]
+        headers = ['Year', 'Total HH', 'Target Serv1', 'BAU Serv1', 'Service Gap',
+                   'Investment Need', 'BAU Investment', 'Financing Gap']
+        ws.append(headers)
+        for i, year in enumerate(result['years']):
+            ws.append([
+                year, result['total_hh'][i],
+                sec['target_hh_serv'][0][i], sec['bau_hh_serv'][0][i], sec['service_gap'][i],
+                sec['investment_need'][i], sec['bau_investment'][i], sec['financing_gap'][i],
+            ])
+
+    if 'Sheet' in wb.sheetnames:
+        del wb['Sheet']
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename="wss_results.xlsx"'},
+    )
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
