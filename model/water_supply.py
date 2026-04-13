@@ -473,6 +473,27 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     interv_loan_inv = loan_annual_inv.copy()
     interv_loan_cum_inv = np.cumsum(interv_loan_inv)
 
+    # ===== SECTION 6: Apply intervention toggles =====
+    t = inputs.toggles
+    if not t.ws_collection_nrw_enabled:
+        interv_ce_nrw_hh[:] = 0
+        interv_ce_nrw_cum_hh[:] = 0
+        interv_ce_nrw_inv[:] = 0
+        interv_ce_nrw_cum_inv[:] = 0
+    if not t.ws_capital_efficiency_enabled:
+        interv_capeff_hh[:] = 0
+        interv_capeff_cum_hh[:] = 0
+    if not t.ws_tariff_enabled:
+        interv_tariff_hh[:] = 0
+        interv_tariff_cum_hh[:] = 0
+        interv_tariff_inv[:] = 0
+        interv_tariff_cum_inv[:] = 0
+    if not t.ws_borrowing_enabled:
+        interv_loan_hh[:] = 0
+        interv_loan_cum_hh[:] = 0
+        interv_loan_inv[:] = 0
+        interv_loan_cum_inv[:] = 0
+
     return {
         'bau_hh': bau_hh,
         'bau_hh_total': bau_hh_total,

@@ -468,6 +468,21 @@ class SanitationInterventionInputs(BaseModel):
     mf_adoption_rate: float = 0.5  # share of on-site HH change adopted via microfinance
 
 
+class InterventionToggles(BaseModel):
+    # Water supply
+    ws_collection_nrw_enabled: bool = True
+    ws_capital_efficiency_enabled: bool = True
+    ws_tariff_enabled: bool = True
+    ws_borrowing_enabled: bool = True
+
+    # Sanitation
+    san_collection_enabled: bool = True
+    san_capital_efficiency_enabled: bool = True
+    san_tariff_enabled: bool = True
+    san_borrowing_enabled: bool = True
+    san_microfinance_enabled: bool = True
+
+
 class ModelInputs(BaseModel):
     period: PeriodInputs = PeriodInputs()
     constants: Constants = Constants()
@@ -483,3 +498,4 @@ class ModelInputs(BaseModel):
     technical: TechnicalInputs = TechnicalInputs()
     water_interventions: WaterInterventionInputs = WaterInterventionInputs()
     sanitation_interventions: SanitationInterventionInputs = SanitationInterventionInputs()
+    toggles: InterventionToggles = InterventionToggles()

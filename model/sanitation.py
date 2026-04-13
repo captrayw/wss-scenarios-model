@@ -486,6 +486,32 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     interv_mf_inv = interv_mf_hh * (si.mf_onsite_cost + si.mf_collection_cost)
     interv_mf_cum_inv = np.cumsum(interv_mf_inv)
 
+    # ===== SECTION 6: Apply intervention toggles =====
+    tog = inputs.toggles
+    if not tog.san_collection_enabled:
+        interv_ce_hh[:] = 0
+        interv_ce_cum_hh[:] = 0
+        interv_ce_inv[:] = 0
+        interv_ce_cum_inv[:] = 0
+    if not tog.san_capital_efficiency_enabled:
+        interv_capeff_hh[:] = 0
+        interv_capeff_cum_hh[:] = 0
+    if not tog.san_tariff_enabled:
+        interv_tariff_hh[:] = 0
+        interv_tariff_cum_hh[:] = 0
+        interv_tariff_inv[:] = 0
+        interv_tariff_cum_inv[:] = 0
+    if not tog.san_borrowing_enabled:
+        interv_loan_hh[:] = 0
+        interv_loan_cum_hh[:] = 0
+        interv_loan_inv[:] = 0
+        interv_loan_cum_inv[:] = 0
+    if not tog.san_microfinance_enabled:
+        interv_mf_hh[:] = 0
+        interv_mf_cum_hh[:] = 0
+        interv_mf_inv[:] = 0
+        interv_mf_cum_inv[:] = 0
+
     return {
         'bau_hh': bau_hh,
         'bau_hh_total': bau_hh_total,
