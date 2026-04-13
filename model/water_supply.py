@@ -188,7 +188,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     capex_treatment = np.zeros(n)
     for t in range(n):
         if asis_flag[t] > 0 or perf_flag[t] > 0:
-            treatment_cap_needed[t] = kukl_hh_target[t] * water_per_hh * mill / c.days_in_year / thou
+            wph = common['water_per_hh_year_arr'][t] if 'water_per_hh_year_arr' in common else water_per_hh
+            treatment_cap_needed[t] = kukl_hh_target[t] * wph * mill / c.days_in_year / thou
             needed = treatment_cap_needed[t] - tech.ws_existing_treatment_mld
             add_cap = max(0, needed)
             if t > 0 and add_cap > add_treatment_cap[t - 1]:

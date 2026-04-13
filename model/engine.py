@@ -238,9 +238,11 @@ def calculate(inputs: ModelInputs) -> dict:
     common['san_bau_total'] = san_bau_total
     common['wash_budget'] = wash_budget
 
-    # Water requirement per HH per year
-    water_per_hh_year = tech.ws_water_req_who_lpcd * avg_hh_size_2025 * c.days_in_year / c.cubic_meter_liters
+    # Water requirement per HH per year (dynamic — shrinks as HH size declines)
+    water_per_hh_year_arr = tech.ws_water_req_who_lpcd * avg_hh_size * c.days_in_year / c.cubic_meter_liters
+    water_per_hh_year = water_per_hh_year_arr[yi(p.baseline_year)]  # baseline value for static calcs
     common['water_per_hh_year'] = water_per_hh_year
+    common['water_per_hh_year_arr'] = water_per_hh_year_arr
 
     ws_results = calculate_water_supply(inputs, common)
     san_results = calculate_sanitation(inputs, common)

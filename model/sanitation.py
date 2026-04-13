@@ -233,6 +233,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     capex_onsite_facility = np.zeros(n)
     capex_emptying = np.zeros(n)
     capex_fst = np.zeros(n)
+    add_fst_cap = np.zeros(n)  # separate tracker for FST capacity (not WWT)
     for t in range(n):
         if (asis_flag[t] > 0 or perf_flag[t] > 0) and onsite_hh_target[t] > current_onsite_hh:
             new_onsite = onsite_hh_target[t] - current_onsite_hh
@@ -255,14 +256,14 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
                 new_trucks = trucks_needed
             capex_emptying[t] = new_trucks * sc.fs_truck_cost_mill
 
-            # FS treatment
+            # FS treatment (uses its own capacity tracker, separate from WWT)
             fst_cap_needed = onsite_hh_target[t] * fs_per_hh_year * mill / c.days_in_year / thou
             fst_needed = max(0, fst_cap_needed - tech.san_existing_fst_mld)
             if t > 0:
-                prev_fst = max(0, add_wwt_cap[t - 1])  # reuse tracking
-                new_fst = max(0, fst_needed - prev_fst) if fst_needed > prev_fst else 0
+                new_fst = max(0, fst_needed - add_fst_cap[t - 1]) if fst_needed > add_fst_cap[t - 1] else 0
             else:
                 new_fst = fst_needed
+            add_fst_cap[t] = fst_needed
             capex_fst[t] = new_fst * sc.cost_per_mld_fst
 
     onsite_total = capex_onsite_facility + capex_emptying + capex_fst
