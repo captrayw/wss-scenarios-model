@@ -201,7 +201,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     service_gap = target_hh[0] - bau_hh[0]
 
     # ===== SECTION 2: Existing stock =====
-    existing_stock_baseline = (ws.hh_treated_piped_baseline / mill) * avg_network_cost_per_hh * (1 + tech.ws_non_hh_capex_pct)
+    # Excel G160 = G155 × G156 × (1+G158) where G156 = I|G G345 (serv1 network cost)
+    existing_stock_baseline = (ws.hh_treated_piped_baseline / mill) * wc.network_cost_per_hh_serv1 * (1 + tech.ws_non_hh_pct_of_hh)
     existing_stock = np.zeros(n)
     existing_stock[yi(p.baseline_year)] = existing_stock_baseline
 
@@ -251,7 +252,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
 
     # Total investment need
     new_capex_hh = total_provider_capex
-    new_capex_nonhh = new_capex_hh * tech.ws_non_hh_capex_pct
+    new_capex_nonhh = new_capex_hh * tech.ws_non_hh_pct_of_hh  # Excel G272 = non-HH as % of HH
     total_new_capex = new_capex_hh + new_capex_nonhh
 
     # Rolling existing stock

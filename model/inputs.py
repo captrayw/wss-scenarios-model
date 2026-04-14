@@ -176,10 +176,10 @@ class SanitationServiceLevelInputs(BaseModel):
 class WaterTargetInputs(BaseModel):
     # Dynamic providers list (replaces kukl_pct/wusc_pct/non_piped_pct)
     providers: List[WaterProviderConfig] = [
-        WaterProviderConfig(name="KUKL", share_pct=1.0, current_hh=262_212,
+        WaterProviderConfig(name="KUKL", share_pct=0.4192, current_hh=262_212,
             network_cost_per_hh=96_877.93, cost_per_mld_treatment=0.0, existing_capacity_mld=117.0),
-        WaterProviderConfig(name="WUSCs", share_pct=0.0, current_hh=126_781,
-            network_cost_per_hh=0.0, cost_per_mld_treatment=0.0, existing_capacity_mld=0.0),
+        WaterProviderConfig(name="WUSCs", share_pct=0.5808, current_hh=220_694,
+            network_cost_per_hh=88_021.23, cost_per_mld_treatment=0.0, existing_capacity_mld=0.0),
     ]
     planned_treatment_capacity_mld: float = 510.0
 

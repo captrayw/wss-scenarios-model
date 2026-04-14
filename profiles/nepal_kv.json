@@ -263,7 +263,7 @@
     "providers": [
       {
         "name": "KUKL",
-        "share_pct": 1.0,
+        "share_pct": 0.4192,
         "current_hh": 262212,
         "network_cost_per_hh": 96877.93,
         "cost_per_mld_treatment": 0.0,
@@ -271,9 +271,9 @@
       },
       {
         "name": "WUSCs",
-        "share_pct": 0.0,
-        "current_hh": 126781,
-        "network_cost_per_hh": 0.0,
+        "share_pct": 0.5808,
+        "current_hh": 220694,
+        "network_cost_per_hh": 88021.23,
         "cost_per_mld_treatment": 0.0,
         "existing_capacity_mld": 0.0
       }
