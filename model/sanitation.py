@@ -307,10 +307,12 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             incremental = max(0, new_onsite - prev_onsite)
             capex_onsite_facility[t] = incremental * sc.onsite_facility_capex
 
-        # 2. Emptying capex (R282): based on R268 (= target for on-site provider)
-        # R270 = IF(R268 > G269, R268 - G269, 0) — HHs needing emptying
-        # Uses the sewered target as proxy for all HHs needing emptying services
-        emptying_target = onsite_hh_target[t]  # R268 = R197
+        # 2. Emptying capex (R282): based on R268 = R197 = WUSC sewered target
+        # NOT the on-site target — the Excel uses the WUSC provider's HH count
+        # R270 = IF(R268 > G269, R268 - G269, 0)
+        # Find WUSCs provider (second one, or the one with the largest non-KUKL share)
+        wusc_share = st.providers[1].share_pct if len(st.providers) > 1 else 0
+        emptying_target = target_hh[0, t] * wusc_share  # R268 = R197 = target × WUSC%
         if emptying_target > current_emptied_hh:
             hh_needing_emptying = emptying_target - current_emptied_hh
             # R273 = FS generated = hh × FS per HH/yr
