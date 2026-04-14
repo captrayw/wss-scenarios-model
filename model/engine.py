@@ -225,12 +225,8 @@ def calculate(inputs: ModelInputs) -> dict:
     # Water supply total BAU investment
     ws_bau_total = ws_bau_total_inv.copy()
 
-    # Sanitation BAU investments (same WASH budget chain)
-    san_sewer_pct = bau.san_sewer_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else 0.4
-    san_wwt_pct = bau.san_wwt_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else 0.16
-    san_fsm_pct = bau.san_fsm_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else 0.03
-    san_other_pct = 1.0 - san_sewer_pct - san_wwt_pct - san_fsm_pct
-
+    # Sanitation BAU investments
+    # WWT and sewer from WASH budget, FSM from planned investment (separate)
     san_bau_wwt = np.zeros(n_years)
     san_bau_sewer = np.zeros(n_years)
     san_bau_fsm = np.zeros(n_years)
@@ -239,11 +235,19 @@ def calculate(inputs: ModelInputs) -> dict:
     for t in range(n_years):
         if asis_flag[t] > 0 or perf_flag[t] > 0:
             wash_bdg = macro.wash_budget_pct_gdp * gdp_real_npr[t] if gdp_real_npr[t] > 0 else 0
-            san_capex = wash_bdg * bau.kv_share_avg * bau.sanitation_share_avg * bau.large_urban_pct * bau.capex_pct_budget
-            san_bau_total[t] = san_capex
-            san_bau_wwt[t] = san_capex * san_wwt_pct
-            san_bau_sewer[t] = san_capex * san_sewer_pct
-            san_bau_fsm[t] = san_capex * san_fsm_pct
+            san_share = bau.sanitation_share_avg + (1 - bau.water_share_avg - bau.sanitation_share_avg) / 2
+            san_capex = wash_bdg * bau.kv_share_avg * water_plus_wss * san_share * bau.large_urban_pct * bau.capex_pct_budget
+            san_bau_wwt[t] = san_capex * bau.san_wwt_share_of_capex
+            san_bau_sewer[t] = san_capex * bau.san_sewer_share_of_capex
+            # FSM from planned investment (separate budget line)
+            y = years[t]
+            if bau.period1_start <= y <= bau.period1_end:
+                san_bau_fsm[t] = bau.san_fsm_2026_2030 / p1_len
+            elif bau.period2_start <= y <= bau.period2_end:
+                san_bau_fsm[t] = bau.san_fsm_2031_2035 / p2_len
+            elif bau.period3_start <= y <= bau.period3_end:
+                san_bau_fsm[t] = bau.san_fsm_2036_2040 / p3_len
+            san_bau_total[t] = san_bau_wwt[t] + san_bau_sewer[t] + san_bau_fsm[t]
 
     common['ws_bau_network_inv'] = ws_bau_network_inv
     common['ws_bau_total'] = ws_bau_total

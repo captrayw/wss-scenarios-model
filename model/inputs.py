@@ -375,9 +375,13 @@ class BAUInvestmentInputs(BaseModel):
     san_sewer_2036_2040: float = 0.0
 
     san_fsm_inv_hist: float = 453.0
-    san_fsm_2026_2030: float = 0.0
-    san_fsm_2031_2035: float = 0.0
-    san_fsm_2036_2040: float = 0.0
+    san_fsm_2026_2030: float = 2_533.3  # planned FSM investment (separate from WASH budget)
+    san_fsm_2031_2035: float = 2_113.3
+    san_fsm_2036_2040: float = 1_273.2
+
+    # Sub-sector shares of sanitation capex budget (from planned investment ratios)
+    san_wwt_share_of_capex: float = 0.2971  # WWT as % of san capex
+    san_sewer_share_of_capex: float = 0.5865  # Sewer as % of san capex
 
 
 class TechnicalInputs(BaseModel):
