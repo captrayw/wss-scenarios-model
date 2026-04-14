@@ -199,10 +199,10 @@ class WaterTargetInputs(BaseModel):
 class SanitationTargetInputs(BaseModel):
     # Dynamic providers list (replaces sewered_kukl_pct/sewered_wusc_pct)
     providers: List[SanitationProviderConfig] = [
-        SanitationProviderConfig(name="KUKL", share_pct=1.0, current_hh_sewer=180_000,
+        SanitationProviderConfig(name="KUKL", share_pct=0.4192, current_hh_sewer=180_000,
             current_hh_wwt=73_000, sewer_cost_per_hh=117_290.77, wwt_cost_per_mld=0.0, existing_wwt_capacity_mld=19.0),
-        SanitationProviderConfig(name="WUSCs", share_pct=0.0, current_hh_sewer=274_860,
-            current_hh_wwt=0, sewer_cost_per_hh=117_290.77, wwt_cost_per_mld=0.0, existing_wwt_capacity_mld=0.0),
+        SanitationProviderConfig(name="WUSCs", share_pct=0.4608, current_hh_sewer=426_386,
+            current_hh_wwt=0, sewer_cost_per_hh=106_567.90, wwt_cost_per_mld=0.0, existing_wwt_capacity_mld=0.0),
     ]
     onsite_collection_treatment_pct: float = 0.12
 

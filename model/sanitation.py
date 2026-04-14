@@ -347,10 +347,13 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     nonhh_rate = tech.san_non_hh_pct_of_hh  # Excel uses non-HH as % of HH (0.1111)
     repl_rate = tech.san_replacement_rate
 
-    # Weighted avg cost per HH for sanitation
-    total_prov_share = sum(pr.share_pct for pr in st.providers) or 1.0
-    avg_sewer_cost = sum(pr.sewer_cost_per_hh * pr.share_pct for pr in st.providers) / total_prov_share if total_prov_share > 0 else (st.providers[0].sewer_cost_per_hh if st.providers else 0)
-    avg_wwt_cost_per_mld = sum(pr.wwt_cost_per_mld * pr.share_pct for pr in st.providers) / total_prov_share if total_prov_share > 0 else 0
+    # Avg cost per HH for sanitation interventions
+    # Excel G347 = AVERAGE(G375, G379) = simple average of provider sewer costs
+    if len(st.providers) >= 2:
+        avg_sewer_cost = sum(pr.sewer_cost_per_hh for pr in st.providers) / len(st.providers)
+    else:
+        avg_sewer_cost = st.providers[0].sewer_cost_per_hh if st.providers else 0
+    avg_wwt_cost_per_mld = sum(pr.wwt_cost_per_mld for pr in st.providers) / len(st.providers) if st.providers else 0
     if avg_wwt_cost_per_mld > 0:
         hh_per_mld = (mill / c.cubic_meter_liters) / (water_per_hh / c.days_in_year)
         wwt_cost_per_hh = (avg_wwt_cost_per_mld / hh_per_mld) * mill
