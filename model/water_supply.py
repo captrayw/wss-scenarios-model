@@ -397,12 +397,21 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
             # Convert annual m3 to m3/day for the unit cost
             nrw_reduction_capex[t] = nrw_unit_cost_npr * (vol_reduced * mill / c.days_in_year) / mill
 
-    # NRW connecting total capex (Row 376) = new_hh + replacement + non-hh
-    nrw_connecting_capex = np.zeros(n)
+    # NRW connecting total capex (Row 376 = Row 372 + Row 374 + Row 375)
+    # Row 372 = HHs from physical loss reduction × distribution cost after efficiency
+    # G368 = avg_network_cost × (1-capeff_gains)
+    avg_network_cost_simple = (wc.network_cost_per_hh_serv1 + (wt.providers[1].network_cost_per_hh if len(wt.providers) > 1 else wc.network_cost_per_hh_serv1)) / 2
+    dist_cost_after_eff = avg_network_cost_simple * (1 - wi.capeff_gains_pct)
+    nrw_connect_new_hh = interv_nrw_hh_physical * dist_cost_after_eff  # Row 372
+    nrw_connect_cum = np.cumsum(nrw_connect_new_hh)  # Row 373
+    nrw_connect_repl = np.zeros(n)  # Row 374
+    nrw_connect_nonhh = np.zeros(n)  # Row 375
+    nrw_connecting_capex = np.zeros(n)  # Row 376
     for t in range(n):
-        repl_t = nrw_cum_hh_capex[t - 1] * repl_rate if t > 0 else 0
-        nonhh_t = (nrw_new_hh_capex[t] + repl_t) * nonhh_rate
-        nrw_connecting_capex[t] = nrw_new_hh_capex[t] + repl_t + nonhh_t
+        nrw_connect_repl[t] = nrw_connect_cum[t - 1] * repl_rate if t > 0 else 0
+        # Row 375 = (R372+R374) × (1-domestic)/domestic
+        nrw_connect_nonhh[t] = (nrw_connect_new_hh[t] + nrw_connect_repl[t]) * (1 - tech.ws_pct_domestic) / tech.ws_pct_domestic if tech.ws_pct_domestic > 0 else 0
+        nrw_connecting_capex[t] = nrw_connect_new_hh[t] + nrw_connect_repl[t] + nrw_connect_nonhh[t]
 
     # Total intervention capex deducted from BAU for CapEff (Row 408)
     nrw_total_intervention_capex = nrw_reduction_capex + nrw_connecting_capex
