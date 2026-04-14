@@ -223,7 +223,11 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
 
     # ===== SECTION 2: Existing stock =====
     _avg_sewer = sum(pr.sewer_cost_per_hh * pr.share_pct for pr in st.providers) / (sum(pr.share_pct for pr in st.providers) or 1) if st.providers else 0
-    existing_stock_baseline = (ss.hh_sewered_baseline / mill) * (_avg_sewer if _avg_sewer > 0 else (st.providers[0].sewer_cost_per_hh if st.providers else 0)) * (1 + tech.san_non_hh_capex_pct)
+    # Excel G182 = G177 × G178 × (1+G180)
+    # G177 = hh_sewered / mill (raw, NOT population-weighted)
+    # G178 = I|G G375 = first provider sewer cost (KUKL)
+    # G180 = non-HH as % of HH
+    existing_stock_baseline = (ss.hh_sewered_baseline / mill) * (st.providers[0].sewer_cost_per_hh if st.providers else 0) * (1 + tech.san_non_hh_pct_of_hh)
     existing_stock = np.zeros(n)
     existing_stock[yi(p.baseline_year)] = existing_stock_baseline
 
