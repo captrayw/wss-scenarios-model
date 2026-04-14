@@ -345,6 +345,7 @@ class BAUInvestmentInputs(BaseModel):
     ws_planned_2046_2050: float = 0.0
 
     # Distribution network investment
+    ws_network_pct_of_ws: float = 0.5893  # network investment as % of total WS investment
     ws_dist_network_hist: float = 2_996.0
     ws_dist_network_2026_2030: float = 0.0
     ws_dist_network_2031_2035: float = 0.0
@@ -382,22 +383,22 @@ class BAUInvestmentInputs(BaseModel):
 class TechnicalInputs(BaseModel):
     # Water supply
     ws_pct_domestic: float = 0.9
-    ws_non_hh_pct_of_hh: float = 0.0
-    ws_non_hh_capex_pct: float = 0.0  # non-HH / (non-HH + HH)
+    ws_non_hh_pct_of_hh: float = 0.11111111  # non-HH as % of HH = (1-domestic)/domestic
+    ws_non_hh_capex_pct: float = 0.10  # non-HH / (non-HH + HH)
     ws_asset_life: int = 30
-    ws_depreciation_rate: float = 0.0  # 1/asset_life
-    ws_replacement_rate: float = 0.0
+    ws_depreciation_rate: float = 0.03333333  # 1/asset_life
+    ws_replacement_rate: float = 0.03333333  # same as depreciation
     ws_existing_treatment_mld: float = 117.0
     ws_num_treatment_plants: int = 26
     ws_water_req_who_lpcd: float = 75.0
 
     # Sanitation
     san_pct_domestic: float = 0.9
-    san_non_hh_pct_of_hh: float = 0.0
-    san_non_hh_capex_pct: float = 0.0
+    san_non_hh_pct_of_hh: float = 0.11111111
+    san_non_hh_capex_pct: float = 0.10
     san_asset_life: int = 30
-    san_depreciation_rate: float = 0.0
-    san_replacement_rate: float = 0.0
+    san_depreciation_rate: float = 0.03333333
+    san_replacement_rate: float = 0.03333333
 
     # Existing WWTPs
     wwtp_hanumanghat_mld: float = 0.5

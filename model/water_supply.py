@@ -55,7 +55,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
 
     # Row 41: BAU 24/7 water HHs (from treatment capacity additions)
     treatment_increase = common['ws_treatment_increase']
-    water_per_hh_adj = water_per_hh * (1 + tech.ws_non_hh_capex_pct) if water_per_hh > 0 else 1
+    water_per_hh_adj = water_per_hh * (1 + tech.ws_non_hh_pct_of_hh) if water_per_hh > 0 else 1
     bau_24hr = np.zeros(n)
     # Anchor at baseline: use the serv1 HHs from historical data
     ws_hh = common['ws_hh_serv_historical'].copy()

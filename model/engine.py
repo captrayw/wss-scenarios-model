@@ -193,7 +193,7 @@ def calculate(inputs: ModelInputs) -> dict:
 
     # BAU investment chain (matches Excel I|General rows 484-530):
     # WASH budget → KV share → water share → large urban → capex → network %
-    network_pct_of_ws = bau.ws_dist_network_hist / bau.ws_total_inv_hist if bau.ws_total_inv_hist > 0 else 0.2
+    network_pct_of_ws = bau.ws_network_pct_of_ws if bau.ws_network_pct_of_ws > 0 else (bau.ws_dist_network_hist / bau.ws_total_inv_hist if bau.ws_total_inv_hist > 0 else 0.2)
     water_plus_wss = bau.water_share_avg + (1 - bau.water_share_avg - bau.sanitation_share_avg) / 2
 
     ws_bau_total_inv = np.zeros(n_years)
