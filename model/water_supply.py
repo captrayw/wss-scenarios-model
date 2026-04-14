@@ -414,8 +414,9 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     # NRW connecting total capex (Row 376 = Row 372 + Row 374 + Row 375)
     # Row 372 = HHs from physical loss reduction × distribution cost after efficiency
     # G368 = avg_network_cost × (1-capeff_gains)
-    avg_network_cost_simple = (wc.network_cost_per_hh_serv1 + (wt.providers[1].network_cost_per_hh if len(wt.providers) > 1 else wc.network_cost_per_hh_serv1)) / 2
-    dist_cost_after_eff = avg_network_cost_simple * (1 - wi.capeff_gains_pct)
+    # Use weighted average (by share) for NRW connecting capex — consistent with provider splits
+    avg_network_cost_weighted = sum(pr.network_cost_per_hh * pr.share_pct for pr in wt.providers) / (sum(pr.share_pct for pr in wt.providers) or 1)
+    dist_cost_after_eff = avg_network_cost_weighted * (1 - wi.capeff_gains_pct)
     nrw_connect_new_hh = interv_nrw_hh_physical * dist_cost_after_eff  # Row 372
     nrw_connect_cum = np.cumsum(nrw_connect_new_hh)  # Row 373
     nrw_connect_repl = np.zeros(n)  # Row 374
