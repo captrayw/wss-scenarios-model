@@ -295,7 +295,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
         else:
             ce_rate[t] = ce_rate[t - 1] + ce_increase_per_yr if t > 0 else ce.ce_current_ratio
 
-    water_sold = ce.ce_water_sold_mld
+    # Convert MLD to annual m3 (millions): MLD × 365 / 1000
+    water_sold = ce.ce_water_sold_mld * c.days_in_year / c.cubic_meter_liters
     tariff_current = ce.ce_current_tariff
     cash_bau = water_sold * tariff_current * ce.ce_current_ratio
     cash_improved = np.array([water_sold * tariff_current * ce_rate[t] for t in range(n)])
