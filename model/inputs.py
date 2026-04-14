@@ -480,12 +480,12 @@ class SanitationInterventionInputs(BaseModel):
     # Collection efficiency
     ce_start_year: int = 2027
     ce_target_year: int = 2030
-    ce_current_ratio: float = 0.0
-    ce_target_ratio: float = 0.0
+    ce_current_ratio: float = 0.83
+    ce_target_ratio: float = 0.98
     ce_wastewater_collected_pct: float = 0.80
-    ce_ww_volume_billed: float = 0.0
+    ce_ww_volume_billed: float = 70.08  # m3/yr millions = water_sold × ww_collected%
     ce_sewer_tariff_pct_water: float = 0.50
-    ce_current_sewer_tariff: float = 0.0
+    ce_current_sewer_tariff: float = 16.0  # = water tariff × sewer%
 
     # Capital efficiency
     capeff_start_year: int = 2027
@@ -495,9 +495,9 @@ class SanitationInterventionInputs(BaseModel):
     tariff_start_year: int = 2028
     tariff_target_year: int = 2033
     tariff_max_pct_income_san: float = 0.05
-    tariff_current_om_recovery: float = 0.0
-    tariff_om_recovery_target: float = 0.0
-    san_tariff_growth_rate: float = 0.05  # default real tariff growth
+    tariff_current_om_recovery: float = 1.2249
+    tariff_om_recovery_target: float = 1.5
+    san_tariff_growth_rate: float = 0.0  # computed from O&M recovery ratio
 
     # Borrowing
     loan_start_year: int = 2036

@@ -317,7 +317,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
 
     # Total investment need
     new_capex_hh = total_sewered_capex + onsite_total
-    new_capex_nonhh = new_capex_hh * tech.san_non_hh_capex_pct
+    new_capex_nonhh = new_capex_hh * tech.san_non_hh_pct_of_hh  # Excel uses non-HH as % of HH
     total_new_capex = new_capex_hh + new_capex_nonhh
 
     rolling_stock = np.zeros(n)
@@ -344,7 +344,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     cumulative_bau_inv = np.cumsum(bau_investment)
 
     # ===== SECTION 5: Interventions =====
-    nonhh_rate = tech.san_non_hh_capex_pct
+    nonhh_rate = tech.san_non_hh_pct_of_hh  # Excel uses non-HH as % of HH (0.1111)
     repl_rate = tech.san_replacement_rate
 
     # Weighted avg cost per HH for sanitation
@@ -373,14 +373,15 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
         else:
             ce_rate[t] = ce_rate[t - 1] + ce_increase_per_yr if t > 0 else si.ce_current_ratio
 
-    # Water supply data from water_supply calc (passed via common)
-    ws_water_sold = inputs.water_interventions.ce_water_sold_mld
-    sewer_tariff_pct = si.ce_sewer_tariff_pct_water
-    ws_tariff = inputs.water_interventions.ce_current_tariff
+    # Sanitation CE uses direct WW volume and sewer tariff inputs
+    # Excel G339 = WW billed (m3/yr millions), G340 = sewer tariff (NPR/m3)
+    ww_billed = si.ce_ww_volume_billed if si.ce_ww_volume_billed > 0 else (
+        inputs.water_interventions.ce_water_sold_mld * c.days_in_year / c.cubic_meter_liters * si.ce_wastewater_collected_pct)
+    sewer_tariff = si.ce_current_sewer_tariff if si.ce_current_sewer_tariff > 0 else (
+        inputs.water_interventions.ce_current_tariff * si.ce_sewer_tariff_pct_water)
 
-    wastewater_billed = ws_water_sold * si.ce_wastewater_collected_pct
-    cash_bau_san = wastewater_billed * (ws_tariff * sewer_tariff_pct) * si.ce_current_ratio
-    cash_improved_san = np.array([wastewater_billed * (ws_tariff * sewer_tariff_pct) * ce_rate[t] for t in range(n)])
+    cash_bau_san = ww_billed * sewer_tariff * si.ce_current_ratio
+    cash_improved_san = np.array([ww_billed * sewer_tariff * ce_rate[t] for t in range(n)])
     additional_cash_ce = cash_improved_san - cash_bau_san
 
     interv_ce_total = additional_cash_ce.copy()
@@ -432,8 +433,12 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     ww_per_hh_month = wastewater_per_hh * c.days_in_month / c.days_in_year if c.days_in_year > 0 else 0
     max_affordable_san_tariff = max_monthly_san / ww_per_hh_month if ww_per_hh_month > 0 else float('inf')
 
-    san_tariff_current = ws_tariff * sewer_tariff_pct
-    san_tariff_growth = si.san_tariff_growth_rate
+    san_tariff_current = sewer_tariff
+    # Tariff growth from O&M recovery ratio (same as water approach)
+    if si.tariff_current_om_recovery > 0 and si.tariff_om_recovery_target > 0 and si.tariff_target_year > si.tariff_start_year:
+        san_tariff_growth = (si.tariff_om_recovery_target / si.tariff_current_om_recovery) ** (1 / (si.tariff_target_year - si.tariff_start_year + 1)) - 1
+    else:
+        san_tariff_growth = si.san_tariff_growth_rate
 
     avg_san_tariff = np.full(n, san_tariff_current)
     for t in range(1, n):
@@ -445,7 +450,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             avg_san_tariff[t] = avg_san_tariff[t - 1]
 
     tariff_increase = avg_san_tariff - san_tariff_current
-    ww_billed_nrw = wastewater_billed  # Simplified: use water supply NRW data if available
+    ww_billed_nrw = ww_billed  # use sanitation-specific WW volume
     additional_rev_tariff = ww_billed_nrw * tariff_increase
     cash_tariff = additional_rev_tariff * ce_rate
 

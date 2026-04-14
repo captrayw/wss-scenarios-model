@@ -247,7 +247,9 @@ def calculate(inputs: ModelInputs) -> dict:
                 san_bau_fsm[t] = bau.san_fsm_2031_2035 / p2_len
             elif bau.period3_start <= y <= bau.period3_end:
                 san_bau_fsm[t] = bau.san_fsm_2036_2040 / p3_len
-            san_bau_total[t] = san_bau_wwt[t] + san_bau_sewer[t] + san_bau_fsm[t]
+            # San BAU total = just WASH budget capex (Row 590), NOT including FSM
+            # FSM is separate planned investment used only for FST capacity
+            san_bau_total[t] = san_capex  # = san_bau_wwt + san_bau_sewer + other
 
     common['ws_bau_network_inv'] = ws_bau_network_inv
     common['ws_bau_total'] = ws_bau_total
