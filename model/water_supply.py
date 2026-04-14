@@ -38,7 +38,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
 
     # Row 34: BAU treated-piped HHs (from network investment)
     network_inv = common['ws_bau_network_inv']
-    network_cost_per_hh = avg_network_cost_per_hh if avg_network_cost_per_hh > 0 else (wt.providers[0].network_cost_per_hh if wt.providers else 0)
+    # Excel G30 = I|G G345 = distribution network cost per HH serv1 (NOT weighted avg)
+    network_cost_per_hh = wc.network_cost_per_hh_serv1
     bau_increase_network = np.zeros(n)
     for t in range(n):
         if network_cost_per_hh > 0:
@@ -309,7 +310,11 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     additional_cash_ce = cash_improved - cash_bau
 
     # Cost per HH after efficiency
-    avg_network_cost = avg_network_cost_per_hh
+    # Excel G314 = AVERAGE(I|G G352, I|G G357) = simple average of provider network costs
+    if len(wt.providers) >= 2:
+        avg_network_cost = sum(pr.network_cost_per_hh for pr in wt.providers) / len(wt.providers)
+    else:
+        avg_network_cost = wt.providers[0].network_cost_per_hh if wt.providers else 0
     if avg_treatment_cost_per_mld > 0:
         hh_per_mld = (mill / c.cubic_meter_liters) / (water_per_hh / c.days_in_year)
         treatment_cost_per_hh = (avg_treatment_cost_per_mld / hh_per_mld) * mill
@@ -317,7 +322,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
         treatment_cost_per_hh = 0
     weighted_cost_per_hh = (treatment_cost_per_hh + avg_network_cost) * (1 - wi.capeff_gains_pct)
 
-    nonhh_rate = tech.ws_non_hh_capex_pct
+    nonhh_rate = tech.ws_non_hh_pct_of_hh  # Excel G321 = non-HH as % of HH (0.1111)
     repl_rate = tech.ws_replacement_rate
 
     interv_ce_total_capex = additional_cash_ce.copy()
@@ -523,17 +528,19 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
         if wi.loan_start_year <= years[t] < wi.loan_start_year + wi.loan_investment_years:
             loan_annual_inv[t] = loan_amount / wi.loan_investment_years if wi.loan_investment_years > 0 else 0
 
+    # Excel R510 = SUM(J509:prev_col) — lagged cumulative excluding current year
+    # Excel R511 = prev_col_R510 × rate — uses R510 from PREVIOUS column
     interv_loan_new_hh = np.zeros(n)
-    interv_loan_cum_hh_capex = np.zeros(n)
+    interv_loan_cum_hh_capex = np.zeros(n)  # R510: lagged (excl current)
     interv_loan_repl = np.zeros(n)
     for t in range(n):
+        # R510 at t = sum of R509 from start through t-1 (excl current)
+        interv_loan_cum_hh_capex[t] = sum(interv_loan_new_hh[s] for s in range(t))
+        # R511 at t = R510[t-1] × rate (previous year's lagged cumulative)
         interv_loan_repl[t] = interv_loan_cum_hh_capex[t - 1] * repl_rate if t > 0 else 0
         denom = 1 + nonhh_rate
         if denom > 0 and loan_annual_inv[t] > 0:
-            interv_loan_new_hh[t] = ((loan_annual_inv[t] - interv_loan_repl[t] - interv_loan_repl[t] * nonhh_rate) / denom)
-            if loan_annual_inv[t] > 0:
-                interv_loan_new_hh[t] = max(0, interv_loan_new_hh[t])
-        interv_loan_cum_hh_capex[t] = (interv_loan_cum_hh_capex[t - 1] if t > 0 else 0) + interv_loan_new_hh[t]
+            interv_loan_new_hh[t] = max(0, (loan_annual_inv[t] - interv_loan_repl[t] - interv_loan_repl[t] * nonhh_rate) / denom)
 
     interv_loan_hh = np.zeros(n)
     if avg_network_cost_per_hh > 0:
