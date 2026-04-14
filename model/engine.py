@@ -15,6 +15,12 @@ def calculate(inputs: ModelInputs) -> dict:
     def yi(year):
         return year - p.model_start_year
 
+    # Safe array access: handles arrays shorter/longer than n_years
+    def sg(arr, t, default=0.0):
+        if arr is None or t < 0:
+            return default
+        return arr[t] if t < len(arr) else (arr[-1] if arr else default)
+
     baseline_flag = (years == p.baseline_year).astype(float)
     historical_flag = (years <= p.baseline_year).astype(float)
     asis_flag = np.array([(1.0 if p.as_is_forecast_start <= y <= end_asis_year else 0.0) for y in years])
@@ -40,20 +46,23 @@ def calculate(inputs: ModelInputs) -> dict:
     macro = inputs.macro
     c = inputs.constants
 
+    # Ensure real_price_year is within model range
+    rpy_idx = max(0, min(yi(macro.real_price_year), n_years - 1))
     inflation_index = np.zeros(n_years)
-    inflation_index[yi(macro.real_price_year)] = 100.0
-    for t in range(yi(macro.real_price_year) - 1, -1, -1):
-        inflation_index[t] = inflation_index[t + 1] / (1 + macro.inflation_nepal[t + 1]) if t + 1 < n_years else 0
-    for t in range(yi(macro.real_price_year) + 1, n_years):
-        inflation_index[t] = inflation_index[t - 1] * (1 + macro.inflation_nepal[t])
+    inflation_index[rpy_idx] = 100.0
+    for t in range(rpy_idx - 1, -1, -1):
+        inflation_index[t] = inflation_index[t + 1] / (1 + sg(macro.inflation_nepal, t + 1, 0.05)) if t + 1 < n_years else 0
+    for t in range(rpy_idx + 1, n_years):
+        inflation_index[t] = inflation_index[t - 1] * (1 + sg(macro.inflation_nepal, t, 0.05))
 
     gdp_nominal_npr = np.zeros(n_years)
     gdp_real_npr = np.zeros(n_years)
     for t in range(n_years):
-        if macro.gdp_nominal_usd[t] and macro.gdp_nominal_usd[t] > 0:
-            gdp_nominal_npr[t] = macro.gdp_nominal_usd[t] * c.thousand * macro.exchange_rate[t]
+        usd_val = sg(macro.gdp_nominal_usd, t, 0)
+        if usd_val and usd_val > 0:
+            gdp_nominal_npr[t] = usd_val * c.thousand * sg(macro.exchange_rate, t, 1)
         elif t > 0:
-            gdp_nominal_npr[t] = gdp_nominal_npr[t - 1] * (1 + macro.gdp_growth[t]) * (1 + macro.inflation_nepal[t])
+            gdp_nominal_npr[t] = gdp_nominal_npr[t - 1] * (1 + sg(macro.gdp_growth, t, 0.05)) * (1 + sg(macro.inflation_nepal, t, 0.05))
         gdp_real_npr[t] = gdp_nominal_npr[t] * 100 / inflation_index[t] if inflation_index[t] > 0 else 0
 
     common['inflation_index'] = inflation_index
