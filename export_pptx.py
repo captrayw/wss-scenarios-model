@@ -12,6 +12,10 @@ def create_pptx(result: dict, inputs: dict) -> io.BytesIO:
     prs.slide_height = Inches(7.5)
 
     period = inputs.get('period', {})
+    cc = inputs.get('country_config', {})
+    country = cc.get('country', 'Country')
+    area = cc.get('area', 'Area')
+    currency = cc.get('currency', 'LCU')
     baseline = period.get('baseline_year', 2025)
     t1 = period.get('target1_year', 2030)
     t2 = period.get('target2_year', 2040)
@@ -110,7 +114,7 @@ def create_pptx(result: dict, inputs: dict) -> io.BytesIO:
     # === SLIDE 1: Title ===
     add_title_slide(
         "WSS Strategic Scenarios Analysis",
-        f"Nepal — Kathmandu Valley | Baseline {baseline} | Targets {t1} & {t2}"
+        f"{country} — {area} | Baseline {baseline} | Targets {t1} & {t2}"
     )
 
     # Summary years
@@ -130,9 +134,9 @@ def create_pptx(result: dict, inputs: dict) -> io.BytesIO:
             ['Target Safely Managed HH (mill)'] + [fmt(sec['target_hh_serv'][0][i], 4) for i in si],
             ['BAU Safely Managed HH (mill)'] + [fmt(sec['bau_hh_serv'][0][i], 4) for i in si],
             ['Service Gap (mill HH)'] + [fmt(sec['service_gap'][i], 4) for i in si],
-            ['Investment Need (NPR bill)'] + [fmt(sec['investment_need'][i], 2, 1000) for i in si],
-            ['BAU Investment (NPR bill)'] + [fmt(sec['bau_investment'][i], 2, 1000) for i in si],
-            ['Financing Gap (NPR bill)'] + [fmt(sec['financing_gap'][i], 2, 1000) for i in si],
+            ['Investment Need ({currency} bill)'] + [fmt(sec['investment_need'][i], 2, 1000) for i in si],
+            ['BAU Investment ({currency} bill)'] + [fmt(sec['bau_investment'][i], 2, 1000) for i in si],
+            ['Financing Gap ({currency} bill)'] + [fmt(sec['financing_gap'][i], 2, 1000) for i in si],
         ]
         add_table_slide(f"{sector_name} — Summary", headers, rows)
 

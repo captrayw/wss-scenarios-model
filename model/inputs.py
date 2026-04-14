@@ -2,6 +2,28 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
+class CountryConfig(BaseModel):
+    country: str = "Nepal"
+    area: str = "Kathmandu Valley"
+    area_type: str = "Urban"  # Urban, Rural, National
+    currency: str = "NPR"
+    currency_usd: str = "USD"
+    provider1_name: str = "KUKL"  # Main utility
+    provider2_name: str = "WUSCs"  # Secondary providers
+    # Water service level labels (JMP ladder)
+    ws_serv1_name: str = "Treated-piped"
+    ws_serv2_name: str = "Basic"
+    ws_serv3_name: str = "Limited"
+    ws_serv4_name: str = "Unimproved"
+    ws_serv5_name: str = "No Service"
+    # Sanitation service level labels
+    san_serv1_name: str = "Safely managed"
+    san_serv2_name: str = "Basic"
+    san_serv3_name: str = "Limited"
+    san_serv4_name: str = "Unimproved"
+    san_serv5_name: str = "No Service"
+
+
 class PeriodInputs(BaseModel):
     model_start_year: int = 2011
     forecast_end_year: int = 2040
@@ -484,6 +506,7 @@ class InterventionToggles(BaseModel):
 
 
 class ModelInputs(BaseModel):
+    country_config: CountryConfig = CountryConfig()
     period: PeriodInputs = PeriodInputs()
     constants: Constants = Constants()
     macro: MacroInputs = MacroInputs()

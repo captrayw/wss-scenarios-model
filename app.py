@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
-from model.inputs import ModelInputs
+import json
+from model.inputs import ModelInputs, CountryConfig
 from model.engine import calculate
 
 app = FastAPI(title="WSS Scenarios Model API")
@@ -21,6 +22,59 @@ app.add_middleware(
 @app.get("/api/defaults")
 def get_defaults():
     return ModelInputs().model_dump()
+
+
+@app.get("/api/defaults/blank")
+def get_blank():
+    """Returns a blank template with zero values for a new country."""
+    blank = ModelInputs(
+        country_config=CountryConfig(country="", area="", currency="USD",
+            provider1_name="Provider 1", provider2_name="Provider 2"),
+    ).model_dump()
+    # Zero out all data-specific fields but keep structure
+    for section in ['macro', 'population', 'water_service', 'sanitation_service',
+                    'water_costs', 'sanitation_costs', 'bau', 'technical']:
+        if section in blank:
+            for key, val in blank[section].items():
+                if isinstance(val, (int, float)):
+                    blank[section][key] = 0
+                elif isinstance(val, list):
+                    blank[section][key] = [0] * len(val)
+    # Keep period defaults
+    blank['period'] = {'model_start_year': 2020, 'forecast_end_year': 2050,
+        'baseline_year': 2024, 'as_is_forecast_start': 2025,
+        'as_is_forecast_length': 2, 'target1_year': 2030, 'target2_year': 2040}
+    return blank
+
+
+@app.get("/api/profiles")
+def list_profiles():
+    """List saved country profiles."""
+    profiles_dir = os.path.join(os.path.dirname(__file__), "profiles")
+    if not os.path.exists(profiles_dir):
+        return []
+    return [f.replace('.json', '') for f in os.listdir(profiles_dir) if f.endswith('.json')]
+
+
+@app.get("/api/profiles/{name}")
+def get_profile(name: str):
+    """Load a saved country profile."""
+    filepath = os.path.join(os.path.dirname(__file__), "profiles", f"{name}.json")
+    if not os.path.exists(filepath):
+        return {"error": "Profile not found"}
+    with open(filepath) as f:
+        return json.load(f)
+
+
+@app.post("/api/profiles/{name}")
+def save_profile(name: str, inputs: ModelInputs):
+    """Save current inputs as a country profile."""
+    profiles_dir = os.path.join(os.path.dirname(__file__), "profiles")
+    os.makedirs(profiles_dir, exist_ok=True)
+    filepath = os.path.join(profiles_dir, f"{name}.json")
+    with open(filepath, 'w') as f:
+        json.dump(inputs.model_dump(), f, indent=2)
+    return {"status": "saved", "name": name}
 
 
 @app.post("/api/calculate")
