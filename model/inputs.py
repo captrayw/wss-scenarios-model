@@ -320,11 +320,12 @@ class BAUInvestmentInputs(BaseModel):
     water_share_2021: float = 0.80
     water_share_2022: float = 0.54
     water_share_2023: float = 0.45
-    water_share_avg: float = 0.60
+    water_share_avg: float = 0.5967  # exact average from Excel G468
     sanitation_share_2021: float = 0.0
     sanitation_share_2022: float = 0.0
     sanitation_share_2023: float = 0.0
     sanitation_share_avg: float = 0.12
+    wss_combined_share_avg: float = 0.2667  # water+sanitation combined share (G470)
 
     large_urban_pct: float = 0.6087
     capex_pct_budget: float = 0.21

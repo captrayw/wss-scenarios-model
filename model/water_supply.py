@@ -45,13 +45,18 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     pop = inputs.population
     current_treated_piped = pct_piped * pop.total_hh_baseline
     bau_treated_piped = np.zeros(n)
-    bau_treated_piped[yi(p.baseline_year)] = current_treated_piped
-    # Forecast: grow from baseline by adding network investment each year
-    for t in range(yi(p.baseline_year) + 1, n):
+    # Excel formula: row34[baseline+1] = G32 + row31[baseline+1]
+    # Then forecast: row34[t] = row34[t-1] + row31[t]
+    # Then backfill: row34[t] = row34[t+1] / (1+hist_rate)
+    bi = yi(p.baseline_year)
+    if bi + 1 < n:
+        bau_treated_piped[bi + 1] = current_treated_piped + bau_increase_network[bi + 1]
+    for t in range(bi + 2, n):
         bau_treated_piped[t] = bau_treated_piped[t - 1] + bau_increase_network[t]
-    # Historical: backfill using historical increase rate
-    for t in range(yi(p.baseline_year) - 1, -1, -1):
-        bau_treated_piped[t] = bau_treated_piped[t + 1] / (1 + ws.hist_increase_treated_piped)
+    # Backfill historical from the first forecast year
+    for t in range(bi, -1, -1):
+        if t + 1 < n:
+            bau_treated_piped[t] = bau_treated_piped[t + 1] / (1 + ws.hist_increase_treated_piped)
 
     # Row 41: BAU 24/7 water HHs (from treatment capacity additions)
     treatment_increase = common['ws_treatment_increase']

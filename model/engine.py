@@ -194,7 +194,7 @@ def calculate(inputs: ModelInputs) -> dict:
     # BAU investment chain (matches Excel I|General rows 484-530):
     # WASH budget → KV share → water share → large urban → capex → network %
     network_pct_of_ws = bau.ws_network_pct_of_ws if bau.ws_network_pct_of_ws > 0 else (bau.ws_dist_network_hist / bau.ws_total_inv_hist if bau.ws_total_inv_hist > 0 else 0.2)
-    water_plus_wss = bau.water_share_avg + (1 - bau.water_share_avg - bau.sanitation_share_avg) / 2
+    water_plus_wss = bau.water_share_avg + bau.wss_combined_share_avg / 2
 
     ws_bau_total_inv = np.zeros(n_years)
     ws_bau_network_inv = np.zeros(n_years)
@@ -235,7 +235,7 @@ def calculate(inputs: ModelInputs) -> dict:
     for t in range(n_years):
         if asis_flag[t] > 0 or perf_flag[t] > 0:
             wash_bdg = macro.wash_budget_pct_gdp * gdp_real_npr[t] if gdp_real_npr[t] > 0 else 0
-            san_share = bau.sanitation_share_avg + (1 - bau.water_share_avg - bau.sanitation_share_avg) / 2
+            san_share = bau.sanitation_share_avg + bau.wss_combined_share_avg / 2
             san_capex = wash_bdg * bau.kv_share_avg * water_plus_wss * san_share * bau.large_urban_pct * bau.capex_pct_budget
             san_bau_wwt[t] = san_capex * bau.san_wwt_share_of_capex
             san_bau_sewer[t] = san_capex * bau.san_sewer_share_of_capex
