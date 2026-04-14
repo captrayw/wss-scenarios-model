@@ -33,7 +33,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
         if network_cost_per_hh > 0:
             bau_increase_treated[t] = network_inv[t] / network_cost_per_hh
 
-    current_treated_piped = ws.hh_treated_piped_2025 / mill
+    current_treated_piped = ws.hh_treated_piped_baseline / mill
     bau_treated_piped = np.zeros(n)
     bau_treated_piped[yi(p.baseline_year)] = current_treated_piped
     for t in range(yi(p.baseline_year) + 1, n):
@@ -170,7 +170,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     service_gap = target_hh[0] - bau_hh[0]
 
     # ===== SECTION 2: Existing stock =====
-    existing_stock_baseline = (ws.hh_treated_piped_2025 / mill) * wc.kukl_network_cost_per_hh * (1 + tech.ws_non_hh_capex_pct)
+    existing_stock_baseline = (ws.hh_treated_piped_baseline / mill) * wc.kukl_network_cost_per_hh * (1 + tech.ws_non_hh_capex_pct)
     existing_stock = np.zeros(n)
     existing_stock[yi(p.baseline_year)] = existing_stock_baseline
 
@@ -201,7 +201,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
                 capex_treatment[t] = new_cap * wc.kukl_cost_per_mld_treatment
 
     # KUKL network capex
-    kukl_hh_current = ws.hh_kukl_2025 / mill
+    kukl_hh_current = ws.hh_kukl_baseline / mill
     kukl_new_hh = np.zeros(n)
     capex_network = np.zeros(n)
     for t in range(n):

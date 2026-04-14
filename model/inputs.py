@@ -73,36 +73,36 @@ class MacroInputs(BaseModel):
         139.665, 143.768, 147.707, 151.754, 155.912, 160.183, 164.572,
         169.081, 173.713, 178.472, 183.362, 188.385, 193.547, 198.849, 204.297
     ]
-    real_price_year: int = 2025
+    real_price_year: int = 2025  # baseline year for real price deflation
     wash_budget_pct_gdp: float = 0.008
 
 
 class PopulationInputs(BaseModel):
-    total_pop_2011: int = 2_423_388
-    total_hh_2011: float = 0.608220  # millions
-    total_pop_2025: int = 3_306_160
-    total_hh_2025: float = 0.94  # millions
+    total_pop_start: int = 2_423_388
+    total_hh_start: float = 0.608220  # millions
+    total_pop_baseline: int = 3_306_160
+    total_hh_baseline: float = 0.94  # millions
     pop_growth_projected: float = 0.022435168902713576
     hh_size_growth_projected: float = -0.008869176358084485
 
 
 class WaterServiceLevelInputs(BaseModel):
-    # 2011 data
-    hh_treated_piped_2011: int = 320_637
-    hh_no_treated_piped_2011: int = 246_259
-    hh_24hr_water_2011: int = 0
-    pct_serv1_2011: float = 0.0       # Treated-piped (safely managed)
-    pct_serv2_2011: float = 0.5653    # Basic
-    pct_serv3_2011: float = 0.4341    # Limited
-    pct_serv4_2011: float = 0.0       # Unimproved
-    pct_serv5_2011: float = 0.0006    # No Service
+    # Start year data
+    hh_treated_piped_start: int = 320_637
+    hh_no_treated_piped_start: int = 246_259
+    hh_24hr_water_start: int = 0
+    pct_serv1_start: float = 0.0       # Treated-piped (safely managed)
+    pct_serv2_start: float = 0.5653    # Basic
+    pct_serv3_start: float = 0.4341    # Limited
+    pct_serv4_start: float = 0.0       # Unimproved
+    pct_serv5_start: float = 0.0006    # No Service
 
-    # 2025 data
-    hh_treated_piped_2025: int = 388_993
-    hh_no_piped_2025: int = 368_201
-    hh_24hr_water_2025: int = 0
-    pct_piped_water_2025: float = 0.0  # % of HHs with piped water
-    hh_treated_piped_conn_2025: int = 388_993
+    # Baseline year data
+    hh_treated_piped_baseline: int = 388_993
+    hh_no_piped_baseline: int = 368_201
+    hh_24hr_water_baseline: int = 0
+    pct_piped_water_baseline: float = 0.0  # % of HHs with piped water
+    hh_treated_piped_conn_baseline: int = 388_993
     hist_increase_treated_piped: float = 0.02
 
     # KUKL breakdown
@@ -118,40 +118,40 @@ class WaterServiceLevelInputs(BaseModel):
     nonpiped_hh_treated: int = 0
 
     # Baseline percentages
-    pct_serv1_2025: float = 0.0       # Treated-piped (safely managed)
-    pct_serv2_2025: float = 0.4138    # Basic
-    pct_serv3_2025: float = 0.3917    # Limited
-    pct_serv4_2025: float = 0.0       # Unimproved
-    pct_serv5_2025: float = 0.1945    # No Service
+    pct_serv1_baseline: float = 0.0       # Treated-piped (safely managed)
+    pct_serv2_baseline: float = 0.4138    # Basic
+    pct_serv3_baseline: float = 0.3917    # Limited
+    pct_serv4_baseline: float = 0.0       # Unimproved
+    pct_serv5_baseline: float = 0.1945    # No Service
 
-    hh_kukl_2025: int = 262_212
+    hh_kukl_baseline: int = 262_212
 
 
 class SanitationServiceLevelInputs(BaseModel):
-    # 2011 data
-    hh_sewered_2011: int = 159_814
-    hh_onsite_2011: int = 407_082
-    pct_sserv1_2011: float = 0.0       # Safely managed
-    pct_sserv2_2011: float = 0.2817    # Basic
-    pct_sserv3_2011: float = 0.7177    # Limited
-    pct_sserv4_2011: float = 0.0       # Unimproved
-    pct_sserv5_2011: float = 0.0006    # No Service
+    # Start year data
+    hh_sewered_start: int = 159_814
+    hh_onsite_start: int = 407_082
+    pct_sserv1_start: float = 0.0       # Safely managed
+    pct_sserv2_start: float = 0.2817    # Basic
+    pct_sserv3_start: float = 0.7177    # Limited
+    pct_sserv4_start: float = 0.0       # Unimproved
+    pct_sserv5_start: float = 0.0006    # No Service
 
-    # 2025 data
-    hh_sewered_2025: int = 454_860
-    hh_onsite_2025: int = 250_249
-    hh_sewered_wwt_2025: int = 73_000   # With wastewater treatment
-    hh_fs_emptied_2025: int = 0         # HHs with fecal sludge emptied
-    hh_kukl_sewer_2025: int = 180_000
+    # Baseline year data
+    hh_sewered_baseline: int = 454_860
+    hh_onsite_baseline: int = 250_249
+    hh_sewered_wwt_baseline: int = 73_000   # With wastewater treatment
+    hh_fs_emptied_baseline: int = 0         # HHs with fecal sludge emptied
+    hh_kukl_sewer_baseline: int = 180_000
     kukl_hh_wwt: int = 73_000
     wusc_hh_sewer: int = 274_860
     wusc_hh_wwt: int = 0
 
-    pct_sserv1_2025: float = 0.0       # Safely managed
-    pct_sserv2_2025: float = 0.4839    # Basic
-    pct_sserv3_2025: float = 0.2663    # Limited
-    pct_sserv4_2025: float = 0.0       # Unimproved
-    pct_sserv5_2025: float = 0.2498    # No Service
+    pct_sserv1_baseline: float = 0.0       # Safely managed
+    pct_sserv2_baseline: float = 0.4839    # Basic
+    pct_sserv3_baseline: float = 0.2663    # Limited
+    pct_sserv4_baseline: float = 0.0       # Unimproved
+    pct_sserv5_baseline: float = 0.2498    # No Service
 
 
 class WaterTargetInputs(BaseModel):
@@ -309,7 +309,7 @@ class BAUInvestmentInputs(BaseModel):
     wash_gdp_avg: float = 0.008
 
     # Water supply investment
-    ws_total_inv_2020_2025: float = 14_832.0
+    ws_total_inv_hist: float = 14_832.0
     ws_planned_2026_2030: float = 16_224.0
     ws_planned_2031_2035: float = 14_005.0
     ws_planned_2036_2040: float = 9_306.0
@@ -317,35 +317,35 @@ class BAUInvestmentInputs(BaseModel):
     ws_planned_2046_2050: float = 0.0
 
     # Distribution network investment
-    ws_dist_network_2020_2025: float = 2_996.0
+    ws_dist_network_hist: float = 2_996.0
     ws_dist_network_2026_2030: float = 0.0
     ws_dist_network_2031_2035: float = 0.0
     ws_dist_network_2036_2040: float = 0.0
 
     # Water treatment
-    ws_production_inv_2020_2025: float = 0.0
+    ws_production_inv_hist: float = 0.0
     ws_treatment_capacity_increased: float = 148.3
     ws_avg_capex_per_mld: float = 0.0
     melamchi_phase1_mld: float = 47.0
     melamchi_phase2_mld: float = 100.0
 
     # Sanitation investment
-    san_total_inv_2020_2025: float = 12_986.0
+    san_total_inv_hist: float = 12_986.0
     san_planned_2026_2030: float = 0.0
     san_planned_2031_2035: float = 0.0
     san_planned_2036_2040: float = 0.0
 
-    san_wwt_inv_2020_2025: float = 2_113.0
+    san_wwt_inv_hist: float = 2_113.0
     san_wwt_2026_2030: float = 0.0
     san_wwt_2031_2035: float = 0.0
     san_wwt_2036_2040: float = 0.0
 
-    san_sewer_inv_2020_2025: float = 5_383.0
+    san_sewer_inv_hist: float = 5_383.0
     san_sewer_2026_2030: float = 0.0
     san_sewer_2031_2035: float = 0.0
     san_sewer_2036_2040: float = 0.0
 
-    san_fsm_inv_2020_2025: float = 453.0
+    san_fsm_inv_hist: float = 453.0
     san_fsm_2026_2030: float = 0.0
     san_fsm_2031_2035: float = 0.0
     san_fsm_2036_2040: float = 0.0

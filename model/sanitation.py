@@ -43,7 +43,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             ann_m3 = ww_treatment_increase[t] * c.days_in_year * thou
             bau_ww_hh_increase[t] = ann_m3 / wastewater_per_hh / mill
 
-    current_ww_treated_hh = ss.hh_sewered_wwt_2025 / mill
+    current_ww_treated_hh = ss.hh_sewered_wwt_baseline / mill
     bau_ww_treated = np.zeros(n)
     bau_ww_treated[yi(p.baseline_year)] = current_ww_treated_hh
     for t in range(yi(p.baseline_year) + 1, n):
@@ -57,7 +57,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
         for t in range(n):
             bau_sewer_increase[t] = san_bau_sewer[t] / sewer_cost_per_hh
 
-    current_sewer_hh = ss.hh_sewered_2025 / mill
+    current_sewer_hh = ss.hh_sewered_baseline / mill
     bau_sewer = np.zeros(n)
     bau_sewer[yi(p.baseline_year)] = current_sewer_hh
     for t in range(yi(p.baseline_year) + 1, n):
@@ -73,7 +73,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
         if (asis_flag[t] > 0 or perf_flag[t] > 0) and fst_cost_per_mld > 0:
             bau_fst_increase[t] = san_bau_fsm[t] / (fst_cost_per_mld / mill)
 
-    current_fst_hh = ss.hh_onsite_2025 / mill * 0  # Approximation: starts near 0
+    current_fst_hh = ss.hh_onsite_baseline / mill * 0  # Approximation: starts near 0
     bau_fst = np.zeros(n)
     if fs_per_hh_year > 0:
         for t in range(yi(p.baseline_year) + 1, n):
@@ -182,7 +182,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     service_gap = target_hh[0] - bau_hh[0]
 
     # ===== SECTION 2: Existing stock =====
-    existing_stock_baseline = (ss.hh_sewered_2025 / mill) * sc.kukl_sewer_cost_per_hh * (1 + tech.san_non_hh_capex_pct)
+    existing_stock_baseline = (ss.hh_sewered_baseline / mill) * sc.kukl_sewer_cost_per_hh * (1 + tech.san_non_hh_capex_pct)
     existing_stock = np.zeros(n)
     existing_stock[yi(p.baseline_year)] = existing_stock_baseline
 
@@ -211,7 +211,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
                 capex_wwt[t] = new_cap * sc.kukl_wwt_cost_per_mld
 
     # Sewerage network capex
-    kukl_sewer_current = ss.hh_kukl_sewer_2025 / mill
+    kukl_sewer_current = ss.hh_kukl_sewer_baseline / mill
     capex_sewer = np.zeros(n)
     for t in range(n):
         if (asis_flag[t] > 0 or perf_flag[t] > 0) and kukl_hh_target[t] > kukl_sewer_current:
@@ -229,7 +229,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     for t in range(n):
         onsite_hh_target[t] = target_hh[0, t] * st.onsite_collection_treatment_pct
 
-    current_onsite_hh = ss.hh_onsite_2025 / mill
+    current_onsite_hh = ss.hh_onsite_baseline / mill
     capex_onsite_facility = np.zeros(n)
     capex_emptying = np.zeros(n)
     capex_fst = np.zeros(n)
@@ -472,7 +472,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
 
     mf_min_income = mf_total_annual / si.mf_max_pct_income if si.mf_max_pct_income > 0 else float('inf')
     mf_pct_hh = si.mf_high_percentile - si.mf_low_percentile
-    mf_total_hh = inputs.population.total_hh_2025 * mf_pct_hh
+    mf_total_hh = inputs.population.total_hh_baseline * mf_pct_hh
     mf_years = si.mf_end_year - si.mf_start_year
     mf_annual_hh = mf_total_hh / mf_years if mf_years > 0 else 0
 

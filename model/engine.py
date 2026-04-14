@@ -62,17 +62,17 @@ def calculate(inputs: ModelInputs) -> dict:
 
     # Population calculations
     pop = inputs.population
-    avg_hh_size_2011 = pop.total_pop_2011 / (pop.total_hh_2011 * c.million)
-    avg_hh_size_2025 = pop.total_pop_2025 / (pop.total_hh_2025 * c.million)
-    pop_cagr_hist = (pop.total_pop_2025 / pop.total_pop_2011) ** (1 / (p.baseline_year - p.model_start_year)) - 1
-    hh_size_cagr_hist = (avg_hh_size_2025 / avg_hh_size_2011) ** (1 / (p.baseline_year - p.model_start_year)) - 1
+    avg_hh_size_start = pop.total_pop_start / (pop.total_hh_start * c.million)
+    avg_hh_size_baseline = pop.total_pop_baseline / (pop.total_hh_baseline * c.million)
+    pop_cagr_hist = (pop.total_pop_baseline / pop.total_pop_start) ** (1 / (p.baseline_year - p.model_start_year)) - 1
+    hh_size_cagr_hist = (avg_hh_size_baseline / avg_hh_size_start) ** (1 / (p.baseline_year - p.model_start_year)) - 1
 
     total_pop = np.zeros(n_years)
     avg_hh_size = np.zeros(n_years)
     total_hh = np.zeros(n_years)
 
-    total_pop[0] = pop.total_pop_2011
-    avg_hh_size[0] = avg_hh_size_2011
+    total_pop[0] = pop.total_pop_start
+    avg_hh_size[0] = avg_hh_size_start
 
     for t in range(1, n_years):
         if years[t] <= p.baseline_year:
@@ -87,20 +87,20 @@ def calculate(inputs: ModelInputs) -> dict:
     common['total_pop'] = total_pop
     common['avg_hh_size'] = avg_hh_size
     common['total_hh'] = total_hh
-    common['avg_hh_size_2025'] = avg_hh_size_2025
+    common['avg_hh_size_2025'] = avg_hh_size_baseline  # key kept for compatibility
 
     # Water service level history (from I|General rows 186-204)
     ws = inputs.water_service
     mill = c.million
 
-    total_hh_2011 = pop.total_hh_2011
+    total_hh_start_val = pop.total_hh_start
     ws_hh_serv = np.zeros((5, n_years))
 
-    ws_pcts_2011 = [ws.pct_serv1_2011, ws.pct_serv2_2011, ws.pct_serv3_2011, ws.pct_serv4_2011, ws.pct_serv5_2011]
-    ws_pcts_2025 = [ws.pct_serv1_2025, ws.pct_serv2_2025, ws.pct_serv3_2025, ws.pct_serv4_2025, ws.pct_serv5_2025]
+    ws_pcts_start = [ws.pct_serv1_start, ws.pct_serv2_start, ws.pct_serv3_start, ws.pct_serv4_start, ws.pct_serv5_start]
+    ws_pcts_base = [ws.pct_serv1_baseline, ws.pct_serv2_baseline, ws.pct_serv3_baseline, ws.pct_serv4_baseline, ws.pct_serv5_baseline]
 
-    ws_hh_start = [total_hh_2011 * pct for pct in ws_pcts_2011]
-    ws_hh_base = [inputs.population.total_hh_2025 * pct for pct in ws_pcts_2025]
+    ws_hh_start = [total_hh_start_val * pct for pct in ws_pcts_start]
+    ws_hh_base = [pop.total_hh_baseline * pct for pct in ws_pcts_base]
 
     ws_cagrs = []
     n_hist = p.baseline_year - p.model_start_year
@@ -137,11 +137,11 @@ def calculate(inputs: ModelInputs) -> dict:
 
     # Sanitation service level history
     ss = inputs.sanitation_service
-    san_pcts_2011 = [ss.pct_sserv1_2011, ss.pct_sserv2_2011, ss.pct_sserv3_2011, ss.pct_sserv4_2011, ss.pct_sserv5_2011]
-    san_pcts_2025 = [ss.pct_sserv1_2025, ss.pct_sserv2_2025, ss.pct_sserv3_2025, ss.pct_sserv4_2025, ss.pct_sserv5_2025]
+    san_pcts_start = [ss.pct_sserv1_start, ss.pct_sserv2_start, ss.pct_sserv3_start, ss.pct_sserv4_start, ss.pct_sserv5_start]
+    san_pcts_base = [ss.pct_sserv1_baseline, ss.pct_sserv2_baseline, ss.pct_sserv3_baseline, ss.pct_sserv4_baseline, ss.pct_sserv5_baseline]
 
-    san_hh_start = [total_hh_2011 * pct for pct in san_pcts_2011]
-    san_hh_base = [pop.total_hh_2025 * pct for pct in san_pcts_2025]
+    san_hh_start = [total_hh_start_val * pct for pct in san_pcts_start]
+    san_hh_base = [pop.total_hh_baseline * pct for pct in san_pcts_base]
 
     san_cagrs = []
     for i in range(5):
@@ -216,9 +216,9 @@ def calculate(inputs: ModelInputs) -> dict:
     san_bau_wwt = np.zeros(n_years)
     san_bau_sewer = np.zeros(n_years)
     san_bau_fsm = np.zeros(n_years)
-    san_sewer_pct = bau.san_sewer_inv_2020_2025 / bau.san_total_inv_2020_2025 if bau.san_total_inv_2020_2025 > 0 else (bau.san_sewer_inv_2020_2025 or 0.4)
-    san_wwt_pct = bau.san_wwt_inv_2020_2025 / bau.san_total_inv_2020_2025 if bau.san_total_inv_2020_2025 > 0 else (bau.san_wwt_inv_2020_2025 or 0.16)
-    san_fsm_pct = bau.san_fsm_inv_2020_2025 / bau.san_total_inv_2020_2025 if bau.san_total_inv_2020_2025 > 0 else (bau.san_fsm_inv_2020_2025 or 0.03)
+    san_sewer_pct = bau.san_sewer_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else (bau.san_sewer_inv_hist or 0.4)
+    san_wwt_pct = bau.san_wwt_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else (bau.san_wwt_inv_hist or 0.16)
+    san_fsm_pct = bau.san_fsm_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else (bau.san_fsm_inv_hist or 0.03)
 
     for t in range(n_years):
         if asis_flag[t] > 0 or perf_flag[t] > 0:
