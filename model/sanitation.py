@@ -76,12 +76,18 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
         if (asis_flag[t] > 0 or perf_flag[t] > 0) and fst_cost_per_mld > 0:
             bau_fst_increase[t] = san_bau_fsm[t] / (fst_cost_per_mld / mill)
 
-    current_fst_hh = ss.hh_onsite_baseline / mill * 0  # Approximation: starts near 0
+    # Excel G61 = existing FST HHs (from I|General)
+    current_fst_hh = ss.hh_fs_emptied_baseline / mill if ss.hh_fs_emptied_baseline > 0 else tech.san_existing_fst_mld * 0.365  # approximate
+    # Excel R62 = R58 / G60 / mill where G60 = water_per_hh_adj (NOT wastewater)
+    water_per_hh_adj = water_per_hh * (1 + tech.ws_non_hh_pct_of_hh) if water_per_hh > 0 else 107
     bau_fst = np.zeros(n)
-    if fs_per_hh_year > 0:
-        for t in range(yi(p.baseline_year) + 1, n):
-            ann_m3 = bau_fst_increase[t] * c.days_in_year * thou
-            bau_fst[t] = bau_fst[t - 1] + ann_m3 / (wastewater_per_hh * mill) if wastewater_per_hh > 0 else 0
+    for t in range(yi(p.baseline_year) + 1, n):
+        ann_m3 = bau_fst_increase[t] * c.days_in_year * thou
+        increase_hh = ann_m3 / water_per_hh_adj / mill if water_per_hh_adj > 0 else 0
+        if t == yi(p.baseline_year) + 1:
+            bau_fst[t] = current_fst_hh + increase_hh
+        else:
+            bau_fst[t] = bau_fst[t - 1] + increase_hh
 
     # BAU serv1 (safely managed) = sewer HHs + FST HHs for forecast
     # Excel row 65 formula:
