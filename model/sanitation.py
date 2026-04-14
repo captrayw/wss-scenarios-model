@@ -280,7 +280,8 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     for t in range(n):
         onsite_hh_target[t] = target_hh[0, t] * st.onsite_collection_treatment_pct
 
-    current_onsite_hh = ss.hh_onsite_baseline / mill
+    # Excel G260 = I|G G247/mill = HHs with on-site + collection (NOT all on-site)
+    current_onsite_hh = ss.hh_onsite_with_collection / mill if ss.hh_onsite_with_collection > 0 else ss.hh_onsite_baseline / mill
     capex_onsite_facility = np.zeros(n)
     capex_emptying = np.zeros(n)
     capex_fst = np.zeros(n)

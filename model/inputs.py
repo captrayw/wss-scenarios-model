@@ -160,7 +160,8 @@ class SanitationServiceLevelInputs(BaseModel):
     hh_sewered_baseline: int = 454_860
     hh_onsite_baseline: int = 250_249
     hh_sewered_wwt_baseline: int = 73_000   # With wastewater treatment
-    hh_fs_emptied_baseline: int = 0         # HHs with fecal sludge emptied
+    hh_onsite_with_collection: int = 125_125  # G247: HHs with on-site + collection/treatment
+    hh_fs_emptied_baseline: int = 312        # G248: HHs with fecal sludge emptied
     hh_kukl_sewer_baseline: int = 180_000
     kukl_hh_wwt: int = 73_000
     wusc_hh_sewer: int = 274_860
@@ -263,7 +264,7 @@ class SanitationUnitCosts(BaseModel):
     sewer_network_cost_per_hh: float = 117_290.77
 
     # On-site facility
-    onsite_facility_capex: float = 20_000.0
+    onsite_facility_capex: float = 81_604.08  # G405: weighted avg from adoption rates × costs
 
     # Adoption rates (whole urban population)
     adopt_septic_tank: float = 0.336
@@ -292,8 +293,8 @@ class SanitationUnitCosts(BaseModel):
     fs_truck_cost_mill: float = 12.45
     truck_size_m3: float = 6.0
     fs_per_person_per_day_liters: float = 0.7
-    emptying_frequency_years: float = 3.0
-    trips_per_truck_year: int = 365
+    emptying_frequency_years: float = 3.2  # G411
+    trips_per_truck_year: int = 1680  # G412
     cost_collection_per_hh: float = 2_000.0
 
     # Treatment
