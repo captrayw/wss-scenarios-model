@@ -390,17 +390,26 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     interv_ce_nrw_inv = additional_cash_ce + cash_nrw
     interv_ce_nrw_cum_inv = np.cumsum(interv_ce_nrw_inv)
 
-    # NRW reduction cost (Row 362) = unit_cost × (volume_reduced / days_in_year)
-    # G357 = NRW unit cost in NPR per m3/day = USD cost × exchange_rate at baseline
+    # NRW reduction cost (Row 362) = G357 × (R360 / G361)
+    # R360 = OFFSET(R358, , G359) = R358 shifted by lag years (look ahead)
+    # So R362[t] uses R358[t+lag] = volume reduction that happens lag years LATER
+    # The investment happens BEFORE the improvement
     nrw_unit_cost_npr = wi.nrw_capex_unit_cost_npr if wi.nrw_capex_unit_cost_npr > 0 else wi.nrw_capex_unit_cost_usd * sg(macro.exchange_rate, yi(p.baseline_year), 130)
-    nrw_reduction_capex = np.zeros(n)
+
+    # First compute R358 (annual change in physical reduction)
+    nrw_delta = np.zeros(n)
     for t in range(1, n):
-        vol_reduced = physical_reduction[t] - physical_reduction[t - 1]
-        if vol_reduced > 0:
-            # Lag the volume reduced
-            lag_t = min(t + wi.nrw_lag_years, n - 1) if wi.nrw_lag_years > 0 else t
-            # Convert annual m3 to m3/day for the unit cost
-            nrw_reduction_capex[t] = nrw_unit_cost_npr * (vol_reduced * mill / c.days_in_year) / mill
+        nrw_delta[t] = physical_reduction[t] - physical_reduction[t - 1]
+
+    # R360 = R358 shifted right by lag years (look at future delta)
+    # R362 = unit_cost × (R360 / days_in_year)
+    nrw_reduction_capex = np.zeros(n)
+    lag = wi.nrw_lag_years
+    for t in range(n):
+        future_t = t + lag
+        future_delta = nrw_delta[future_t] if future_t < n else 0
+        if future_delta > 0:
+            nrw_reduction_capex[t] = nrw_unit_cost_npr * (future_delta * mill / c.days_in_year) / mill
 
     # NRW connecting total capex (Row 376 = Row 372 + Row 374 + Row 375)
     # Row 372 = HHs from physical loss reduction × distribution cost after efficiency
