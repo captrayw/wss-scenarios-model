@@ -93,7 +93,7 @@ class MacroInputs(BaseModel):
         169.081, 173.713, 178.472, 183.362, 188.385, 193.547, 198.849, 204.297
     ]
     real_price_year: int = 2025  # baseline year for real price deflation
-    wash_budget_pct_gdp: float = 0.008
+    wash_budget_pct_gdp: float = 0.01125
 
 
 class PopulationInputs(BaseModel):
@@ -334,7 +334,7 @@ class BAUInvestmentInputs(BaseModel):
     wash_gdp_2021_22: float = 0.014
     wash_gdp_2022_23: float = 0.010
     wash_gdp_2023_24: float = 0.008
-    wash_gdp_avg: float = 0.008
+    wash_gdp_avg: float = 0.01125
 
     # Water supply investment
     ws_total_inv_hist: float = 14_832.0

@@ -28,46 +28,63 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     avg_treatment_cost_per_mld = sum(pr.cost_per_mld_treatment * pr.share_pct for pr in wt.providers) / total_share if total_share > 0 else 0
 
     # ===== SECTION 0: BAU HHs forecast =====
-    ws_hh = common['ws_hh_serv_historical'].copy()
+    # Matches Excel C|Water supply rows 29-64
 
-    # BAU treated-piped from network investment (C|WS rows 29-34)
+    # Row 34: BAU treated-piped HHs (from network investment)
     network_inv = common['ws_bau_network_inv']
     network_cost_per_hh = avg_network_cost_per_hh if avg_network_cost_per_hh > 0 else (wt.providers[0].network_cost_per_hh if wt.providers else 0)
-    bau_increase_treated = np.zeros(n)
+    bau_increase_network = np.zeros(n)
     for t in range(n):
         if network_cost_per_hh > 0:
-            bau_increase_treated[t] = network_inv[t] / network_cost_per_hh
+            bau_increase_network[t] = network_inv[t] / network_cost_per_hh
 
-    current_treated_piped = ws.hh_treated_piped_baseline / mill
+    # G32 in Excel = G151 * G103 = (% piped water) × total_hh_baseline
+    # where % piped = hh_treated_piped / (hh_treated_piped + hh_no_piped)
+    total_piped_hh = ws.hh_treated_piped_baseline + ws.hh_no_piped_baseline
+    pct_piped = ws.hh_treated_piped_baseline / total_piped_hh if total_piped_hh > 0 else 0
+    pop = inputs.population
+    current_treated_piped = pct_piped * pop.total_hh_baseline
     bau_treated_piped = np.zeros(n)
     bau_treated_piped[yi(p.baseline_year)] = current_treated_piped
+    # Forecast: grow from baseline by adding network investment each year
     for t in range(yi(p.baseline_year) + 1, n):
-        bau_treated_piped[t] = bau_treated_piped[t - 1] + bau_increase_treated[t]
+        bau_treated_piped[t] = bau_treated_piped[t - 1] + bau_increase_network[t]
+    # Historical: backfill using historical increase rate
+    for t in range(yi(p.baseline_year) - 1, -1, -1):
+        bau_treated_piped[t] = bau_treated_piped[t + 1] / (1 + ws.hist_increase_treated_piped)
 
-    for t in range(yi(p.baseline_year)):
-        bau_treated_piped[t] = current_treated_piped * ((1 - ws.hist_increase_treated_piped) ** (p.baseline_year - years[t]))
-
-    # BAU treatment capacity -> safely managed HHs (rows 36-42)
+    # Row 41: BAU 24/7 water HHs (from treatment capacity additions)
     treatment_increase = common['ws_treatment_increase']
-    water_per_hh_adj = water_per_hh * (1 + tech.ws_non_hh_capex_pct)
-    bau_safely_managed = np.zeros(n)
-    if water_per_hh_adj > 0:
-        for t in range(n):
+    water_per_hh_adj = water_per_hh * (1 + tech.ws_non_hh_capex_pct) if water_per_hh > 0 else 1
+    bau_24hr = np.zeros(n)
+    # Anchor at baseline: use the serv1 HHs from historical data
+    ws_hh = common['ws_hh_serv_historical'].copy()
+    serv1_at_baseline = current_treated_piped  # treated piped at baseline
+    for t in range(n):
+        if years[t] <= p.baseline_year:
+            bau_24hr[t] = 0  # not tracked historically
+        else:
             ann_increase_m3 = treatment_increase[t] * c.days_in_year * thou
             increase_hh = ann_increase_m3 / water_per_hh_adj / mill
             if t == yi(p.baseline_year) + 1:
-                bau_safely_managed[t] = ws_hh[0, t - 1] + increase_hh if t > 0 else increase_hh
-            elif t > yi(p.baseline_year) + 1:
-                bau_safely_managed[t] = bau_safely_managed[t - 1] + increase_hh
+                bau_24hr[t] = serv1_at_baseline + increase_hh
+            else:
+                bau_24hr[t] = bau_24hr[t - 1] + increase_hh
 
-    # BAU serv1 = min(treated_piped, safely_managed)
-    bau_serv1_unadj = np.minimum(bau_treated_piped, bau_safely_managed)
+    # Row 42: BAU safely managed = MIN(treated_piped, 24hr) for forecast years
+    bau_serv1_unadj = np.zeros(n)
+    for t in range(n):
+        if years[t] <= p.baseline_year:
+            bau_serv1_unadj[t] = bau_treated_piped[t]
+        elif bau_24hr[t] > 0:
+            bau_serv1_unadj[t] = min(bau_treated_piped[t], bau_24hr[t])
+        else:
+            bau_serv1_unadj[t] = bau_treated_piped[t]
 
-    # BAU other service levels (unadjusted, grow at historical CAGR)
+    # Rows 44-49: BAU other service levels (unadjusted, grow at historical CAGR)
     ws_cagrs = common['ws_cagrs_hist']
     bau_unadj = np.zeros((5, n))
     bau_unadj[0] = bau_serv1_unadj
-
     for i in range(1, 5):
         for t in range(n):
             if years[t] <= p.baseline_year:
@@ -75,25 +92,29 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
             elif t > 0:
                 bau_unadj[i, t] = bau_unadj[i, t - 1] * (1 + ws_cagrs[i])
 
-    # Adjust BAU to match total HHs
+    # Rows 53-58: Adjust BAU to match total HHs
+    # Row 53: serv1 stays as is
+    # Row 54: serv2 = total - serv1 - serv3 - serv4 - serv5
+    # Row 55-57: serv3-5 adjusted proportionally
     bau_hh = np.zeros((5, n))
     for t in range(n):
         if years[t] <= p.baseline_year:
+            # Row 60-64: historical = use treated piped for serv1, remainder for serv2
             bau_hh[0, t] = bau_treated_piped[t]
-            bau_hh[1, t] = sum(ws_hh[0:2, t]) - bau_treated_piped[t]
+            bau_hh[1, t] = sum(ws_hh[j, t] for j in range(2)) - bau_treated_piped[t]
             for i in range(2, 5):
                 bau_hh[i, t] = ws_hh[i, t]
         else:
             bau_hh[0, t] = bau_unadj[0, t]
+            # Adjust serv3-5 proportionally
             unadj_sum = sum(bau_unadj[i, t] for i in range(5))
-            if unadj_sum > 0:
-                bau_hh[1, t] = total_hh[t] - bau_hh[0, t] - sum(
-                    bau_unadj[i, t] + (bau_unadj[i, t] / unadj_sum) * (total_hh[t] - unadj_sum) for i in range(2, 5)
-                )
-                for i in range(2, 5):
+            for i in range(2, 5):
+                if unadj_sum > 0:
                     bau_hh[i, t] = bau_unadj[i, t] + (bau_unadj[i, t] / unadj_sum) * (total_hh[t] - unadj_sum)
-            else:
-                bau_hh[1, t] = total_hh[t] - bau_hh[0, t]
+                else:
+                    bau_hh[i, t] = 0
+            # serv2 = residual
+            bau_hh[1, t] = total_hh[t] - bau_hh[0, t] - sum(bau_hh[i, t] for i in range(2, 5))
 
     bau_hh_total = np.sum(bau_hh, axis=0)
 

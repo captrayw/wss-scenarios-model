@@ -81,11 +81,30 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             ann_m3 = bau_fst_increase[t] * c.days_in_year * thou
             bau_fst[t] = bau_fst[t - 1] + ann_m3 / (wastewater_per_hh * mill) if wastewater_per_hh > 0 else 0
 
-    # BAU serv1 (safely managed) = sewer + fst
-    bau_serv1 = bau_sewer + bau_fst
+    # BAU serv1 (safely managed) = sewer HHs + FST HHs for forecast
+    # For historical: use sewered baseline as anchor (Excel row 65/83)
+    bau_serv1 = np.zeros(n)
+    # Excel G236 = sewered / (sewered + on-site) × total_hh_baseline
+    total_san_hh = ss.hh_sewered_baseline + ss.hh_onsite_baseline
+    pct_sewered = ss.hh_sewered_baseline / total_san_hh if total_san_hh > 0 else 0
+    baseline_sewer_hh = pct_sewered * inputs.population.total_hh_baseline
     for t in range(n):
         if years[t] <= p.baseline_year:
-            bau_serv1[t] = san_hh[0, t]
+            # Historical: interpolate from sewered HH data
+            if years[t] == p.baseline_year:
+                bau_serv1[t] = baseline_sewer_hh
+            elif t > 0:
+                # Grow backwards from baseline using historical sewer CAGR
+                total_san_start = ss.hh_sewered_start + ss.hh_onsite_start
+                hist_sewer_start = (ss.hh_sewered_start / total_san_start * inputs.population.total_hh_start) if total_san_start > 0 else 0
+                n_hist_yr = p.baseline_year - p.model_start_year
+                if hist_sewer_start > 0 and n_hist_yr > 0:
+                    sewer_cagr = (baseline_sewer_hh / hist_sewer_start) ** (1 / n_hist_yr) - 1
+                    bau_serv1[t] = hist_sewer_start * (1 + sewer_cagr) ** (years[t] - p.model_start_year)
+                else:
+                    bau_serv1[t] = baseline_sewer_hh
+        else:
+            bau_serv1[t] = bau_sewer[t] + bau_fst[t]
 
     # BAU service levels (unadjusted, grow at historical CAGR)
     san_cagrs = common['san_cagrs_hist']
@@ -99,22 +118,26 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             elif t > 0:
                 bau_unadj[i, t] = bau_unadj[i, t - 1] * (1 + san_cagrs[i])
 
-    # Adjust BAU to match total HHs
+    # Adjust BAU to match total HHs (matching Excel rows 76-87)
     bau_hh = np.zeros((5, n))
     for t in range(n):
         if years[t] <= p.baseline_year:
-            bau_hh[:, t] = san_hh[:, t]
+            # Historical: serv1 from bau_serv1, serv2 = remainder, rest from historical
+            bau_hh[0, t] = bau_serv1[t]
+            bau_hh[1, t] = san_hh[1, t] if san_hh[1, t] > 0 else (total_hh[t] - bau_serv1[t] - sum(san_hh[i, t] for i in range(2, 5)))
+            for i in range(2, 5):
+                bau_hh[i, t] = san_hh[i, t]
         else:
             bau_hh[0, t] = bau_unadj[0, t]
+            # Adjust serv3-5 proportionally
             unadj_sum = sum(bau_unadj[i, t] for i in range(5))
-            if unadj_sum > 0:
-                bau_hh[1, t] = total_hh[t] - bau_hh[0, t] - sum(
-                    bau_unadj[i, t] + (bau_unadj[i, t] / unadj_sum) * (total_hh[t] - unadj_sum) for i in range(2, 5)
-                )
-                for i in range(2, 5):
+            for i in range(2, 5):
+                if unadj_sum > 0:
                     bau_hh[i, t] = bau_unadj[i, t] + (bau_unadj[i, t] / unadj_sum) * (total_hh[t] - unadj_sum)
-            else:
-                bau_hh[1, t] = total_hh[t] - bau_hh[0, t]
+                else:
+                    bau_hh[i, t] = 0
+            # serv2 = residual
+            bau_hh[1, t] = total_hh[t] - bau_hh[0, t] - sum(bau_hh[i, t] for i in range(2, 5))
 
     bau_hh_total = np.sum(bau_hh, axis=0)
 

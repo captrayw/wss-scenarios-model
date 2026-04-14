@@ -199,7 +199,7 @@
       204.297
     ],
     "real_price_year": 2025,
-    "wash_budget_pct_gdp": 0.008
+    "wash_budget_pct_gdp": 0.01125
   },
   "population": {
     "total_pop_start": 2423388,
@@ -401,7 +401,7 @@
     "wash_gdp_2021_22": 0.014,
     "wash_gdp_2022_23": 0.01,
     "wash_gdp_2023_24": 0.008,
-    "wash_gdp_avg": 0.008,
+    "wash_gdp_avg": 0.01125,
     "ws_total_inv_hist": 14832.0,
     "ws_planned_2026_2030": 16224.0,
     "ws_planned_2031_2035": 14005.0,

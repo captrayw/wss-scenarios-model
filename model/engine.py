@@ -191,17 +191,21 @@ def calculate(inputs: ModelInputs) -> dict:
     p2_len = bau.period2_end - bau.period2_start + 1
     p3_len = bau.period3_end - bau.period3_start + 1
 
+    # BAU investment chain (matches Excel I|General rows 484-530):
+    # WASH budget → KV share → water share → large urban → capex → network %
+    network_pct_of_ws = bau.ws_dist_network_hist / bau.ws_total_inv_hist if bau.ws_total_inv_hist > 0 else 0.2
+    water_plus_wss = bau.water_share_avg + (1 - bau.water_share_avg - bau.sanitation_share_avg) / 2
+
+    ws_bau_total_inv = np.zeros(n_years)
     ws_bau_network_inv = np.zeros(n_years)
     for t in range(n_years):
         if asis_flag[t] > 0 or perf_flag[t] > 0:
-            if years[t] <= bau.period1_end:
-                ws_bau_network_inv[t] = bau.ws_planned_2026_2030 / p1_len
-            elif years[t] <= bau.period2_end:
-                ws_bau_network_inv[t] = bau.ws_planned_2031_2035 / p2_len
-            elif years[t] <= bau.period3_end:
-                ws_bau_network_inv[t] = bau.ws_planned_2036_2040 / p3_len
-            yrs_from_base = years[t] - p.baseline_year
-            ws_bau_network_inv[t] *= (1 + bau.bau_inflation_rate) ** yrs_from_base
+            # WASH budget = GDP_real × WASH/GDP%
+            wash_bdg = macro.wash_budget_pct_gdp * gdp_real_npr[t] if gdp_real_npr[t] > 0 else 0
+            # KV Water capex = WASH × KV_share × water% × large_urban% × capex%
+            ws_capex = wash_bdg * bau.kv_share_avg * water_plus_wss * bau.large_urban_pct * bau.capex_pct_budget
+            ws_bau_total_inv[t] = ws_capex
+            ws_bau_network_inv[t] = ws_capex * network_pct_of_ws
 
     # Water treatment capacity increase (Melamchi phases)
     ws_treatment_increase = np.zeros(n_years)
@@ -218,25 +222,28 @@ def calculate(inputs: ModelInputs) -> dict:
         if asis_flag[t] > 0 or perf_flag[t] > 0:
             wash_budget[t] = macro.wash_budget_pct_gdp * gdp_real_npr[t] if gdp_real_npr[t] > 0 else 0
 
-    # Water supply total BAU investment (I|General row 526 pattern)
-    ws_bau_total = ws_bau_network_inv.copy()
+    # Water supply total BAU investment
+    ws_bau_total = ws_bau_total_inv.copy()
 
-    # Sanitation BAU investments
+    # Sanitation BAU investments (same WASH budget chain)
+    san_sewer_pct = bau.san_sewer_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else 0.4
+    san_wwt_pct = bau.san_wwt_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else 0.16
+    san_fsm_pct = bau.san_fsm_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else 0.03
+    san_other_pct = 1.0 - san_sewer_pct - san_wwt_pct - san_fsm_pct
+
     san_bau_wwt = np.zeros(n_years)
     san_bau_sewer = np.zeros(n_years)
     san_bau_fsm = np.zeros(n_years)
-    san_sewer_pct = bau.san_sewer_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else (bau.san_sewer_inv_hist or 0.4)
-    san_wwt_pct = bau.san_wwt_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else (bau.san_wwt_inv_hist or 0.16)
-    san_fsm_pct = bau.san_fsm_inv_hist / bau.san_total_inv_hist if bau.san_total_inv_hist > 0 else (bau.san_fsm_inv_hist or 0.03)
+    san_bau_total = np.zeros(n_years)
 
     for t in range(n_years):
         if asis_flag[t] > 0 or perf_flag[t] > 0:
-            total_san_bau = wash_budget[t] * bau.kv_share_avg * bau.sanitation_share_avg if wash_budget[t] > 0 else 0
-            san_bau_wwt[t] = total_san_bau * san_wwt_pct
-            san_bau_sewer[t] = total_san_bau * san_sewer_pct
-            san_bau_fsm[t] = total_san_bau * san_fsm_pct
-
-    san_bau_total = san_bau_wwt + san_bau_sewer + san_bau_fsm
+            wash_bdg = macro.wash_budget_pct_gdp * gdp_real_npr[t] if gdp_real_npr[t] > 0 else 0
+            san_capex = wash_bdg * bau.kv_share_avg * bau.sanitation_share_avg * bau.large_urban_pct * bau.capex_pct_budget
+            san_bau_total[t] = san_capex
+            san_bau_wwt[t] = san_capex * san_wwt_pct
+            san_bau_sewer[t] = san_capex * san_sewer_pct
+            san_bau_fsm[t] = san_capex * san_fsm_pct
 
     common['ws_bau_network_inv'] = ws_bau_network_inv
     common['ws_bau_total'] = ws_bau_total
