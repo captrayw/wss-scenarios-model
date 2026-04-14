@@ -486,7 +486,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     est_cash_inflow = avg_tariff * water_sold_nrw * ce_rate
     est_cash_outflow = np.full(n, 0.0)
     # Operating cost per m3 approximated from KUKL data
-    op_cost_per_m3 = wi.tariff_kukl_op_expenditure / (water_sold * mill * c.days_in_year / c.days_in_month) if water_sold > 0 else 0
+    # G483 = KUKL expenditure / (water_sold_annual_m3 × 1M)
+    op_cost_per_m3 = wi.tariff_kukl_op_expenditure / (water_sold * mill) if water_sold > 0 else 0
     for t in range(n):
         est_cash_outflow[t] = op_cost_per_m3 * billed_water
 
@@ -527,7 +528,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
 
     interv_loan_hh = np.zeros(n)
     if avg_network_cost_per_hh > 0:
-        interv_loan_hh = interv_loan_new_hh / avg_network_cost_per_hh
+        interv_loan_hh = interv_loan_new_hh / wc.network_cost_per_hh_serv1  # Excel G513 = I|G G345
     interv_loan_cum_hh = np.cumsum(interv_loan_hh)
     interv_loan_inv = loan_annual_inv.copy()
     interv_loan_cum_inv = np.cumsum(interv_loan_inv)
