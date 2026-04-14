@@ -27,15 +27,16 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
 
     # BAU wastewater treatment capacity
     san_bau_wwt = common['san_bau_wwt']
-    wwt_cost_per_mld = sc.kukl_wwt_cost_per_mld if sc.kukl_wwt_cost_per_mld > 0 else (
+    _avg_wwt = sum(pr.wwt_cost_per_mld * pr.share_pct for pr in st.providers) / (sum(pr.share_pct for pr in st.providers) or 1)
+    wwt_cost_per_mld = _avg_wwt if _avg_wwt > 0 else (
         tech.san_existing_wwtp_mld  # placeholder
     )
 
     wastewater_per_hh = water_per_hh * tech.san_wastewater_factor
     ww_treatment_increase = np.zeros(n)
     for t in range(n):
-        if (asis_flag[t] > 0 or perf_flag[t] > 0) and sc.kukl_wwt_cost_per_mld > 0:
-            ww_treatment_increase[t] = san_bau_wwt[t] / sc.kukl_wwt_cost_per_mld
+        if (asis_flag[t] > 0 or perf_flag[t] > 0) and _avg_wwt > 0:
+            ww_treatment_increase[t] = san_bau_wwt[t] / _avg_wwt
 
     bau_ww_hh_increase = np.zeros(n)
     if wastewater_per_hh > 0:
@@ -182,7 +183,8 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     service_gap = target_hh[0] - bau_hh[0]
 
     # ===== SECTION 2: Existing stock =====
-    existing_stock_baseline = (ss.hh_sewered_baseline / mill) * sc.kukl_sewer_cost_per_hh * (1 + tech.san_non_hh_capex_pct)
+    _avg_sewer = sum(pr.sewer_cost_per_hh * pr.share_pct for pr in st.providers) / (sum(pr.share_pct for pr in st.providers) or 1) if st.providers else 0
+    existing_stock_baseline = (ss.hh_sewered_baseline / mill) * (_avg_sewer if _avg_sewer > 0 else (st.providers[0].sewer_cost_per_hh if st.providers else 0)) * (1 + tech.san_non_hh_capex_pct)
     existing_stock = np.zeros(n)
     existing_stock[yi(p.baseline_year)] = existing_stock_baseline
 
@@ -190,39 +192,45 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     bau_investment = common['san_bau_total'].copy()
 
     # ===== SECTION 4: Investment need & financing gap =====
-    # Sewered KUKL
-    kukl_hh_target = np.zeros(n)
-    for t in range(n):
-        kukl_hh_target[t] = target_hh[0, t] * st.sewered_kukl_pct
+    # Loop over all sewered providers
+    total_sewered_capex = np.zeros(n)
 
-    # WWT capacity needed
-    capex_wwt = np.zeros(n)
-    add_wwt_cap = np.zeros(n)
-    for t in range(n):
-        if asis_flag[t] > 0 or perf_flag[t] > 0:
-            cap_needed = kukl_hh_target[t] * wastewater_per_hh * mill / c.days_in_year / thou
-            needed = max(0, cap_needed - tech.san_existing_wwtp_mld)
-            if t > 0 and needed > add_wwt_cap[t - 1]:
-                new_cap = needed - add_wwt_cap[t - 1]
-            else:
-                new_cap = 0
-            add_wwt_cap[t] = needed
-            if sc.kukl_wwt_cost_per_mld > 0:
-                capex_wwt[t] = new_cap * sc.kukl_wwt_cost_per_mld
+    for prov in st.providers:
+        if prov.share_pct <= 0:
+            continue
 
-    # Sewerage network capex
-    kukl_sewer_current = ss.hh_kukl_sewer_baseline / mill
-    capex_sewer = np.zeros(n)
-    for t in range(n):
-        if (asis_flag[t] > 0 or perf_flag[t] > 0) and kukl_hh_target[t] > kukl_sewer_current:
-            new = kukl_hh_target[t] - kukl_sewer_current
-            prev_new = 0
-            if t > 0 and years[t - 1] > p.baseline_year:
-                prev_new = max(0, kukl_hh_target[t - 1] - kukl_sewer_current)
-            incremental = max(0, new - prev_new)
-            capex_sewer[t] = incremental * sc.kukl_sewer_cost_per_hh
+        prov_hh_target = np.zeros(n)
+        for t in range(n):
+            prov_hh_target[t] = target_hh[0, t] * prov.share_pct
 
-    kukl_total = capex_wwt + capex_sewer
+        # WWT capacity needed
+        prov_add_wwt = np.zeros(n)
+        prov_capex_wwt = np.zeros(n)
+        for t in range(n):
+            if asis_flag[t] > 0 or perf_flag[t] > 0:
+                cap_needed = prov_hh_target[t] * wastewater_per_hh * mill / c.days_in_year / thou
+                needed = max(0, cap_needed - prov.existing_wwt_capacity_mld)
+                if t > 0 and needed > prov_add_wwt[t - 1]:
+                    new_cap = needed - prov_add_wwt[t - 1]
+                else:
+                    new_cap = 0
+                prov_add_wwt[t] = needed
+                if prov.wwt_cost_per_mld > 0:
+                    prov_capex_wwt[t] = new_cap * prov.wwt_cost_per_mld
+
+        # Sewerage network capex
+        prov_sewer_current = prov.current_hh_sewer / mill
+        prov_capex_sewer = np.zeros(n)
+        for t in range(n):
+            if (asis_flag[t] > 0 or perf_flag[t] > 0) and prov_hh_target[t] > prov_sewer_current:
+                new = prov_hh_target[t] - prov_sewer_current
+                prev_new = 0
+                if t > 0 and years[t - 1] > p.baseline_year:
+                    prev_new = max(0, prov_hh_target[t - 1] - prov_sewer_current)
+                incremental = max(0, new - prev_new)
+                prov_capex_sewer[t] = incremental * prov.sewer_cost_per_hh
+
+        total_sewered_capex += prov_capex_wwt + prov_capex_sewer
 
     # On-site sanitation capex
     onsite_hh_target = np.zeros(n)
@@ -269,7 +277,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     onsite_total = capex_onsite_facility + capex_emptying + capex_fst
 
     # Total investment need
-    new_capex_hh = kukl_total + onsite_total
+    new_capex_hh = total_sewered_capex + onsite_total
     new_capex_nonhh = new_capex_hh * tech.san_non_hh_capex_pct
     total_new_capex = new_capex_hh + new_capex_nonhh
 
@@ -301,10 +309,12 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     repl_rate = tech.san_replacement_rate
 
     # Weighted avg cost per HH for sanitation
-    avg_sewer_cost = sc.kukl_sewer_cost_per_hh * st.sewered_kukl_pct + sc.wusc_sewer_cost_per_hh * st.sewered_wusc_pct if (st.sewered_kukl_pct + st.sewered_wusc_pct) > 0 else sc.kukl_sewer_cost_per_hh
-    if sc.kukl_wwt_cost_per_mld > 0:
+    total_prov_share = sum(pr.share_pct for pr in st.providers) or 1.0
+    avg_sewer_cost = sum(pr.sewer_cost_per_hh * pr.share_pct for pr in st.providers) / total_prov_share if total_prov_share > 0 else (st.providers[0].sewer_cost_per_hh if st.providers else 0)
+    avg_wwt_cost_per_mld = sum(pr.wwt_cost_per_mld * pr.share_pct for pr in st.providers) / total_prov_share if total_prov_share > 0 else 0
+    if avg_wwt_cost_per_mld > 0:
         hh_per_mld = (mill / c.cubic_meter_liters) / (water_per_hh / c.days_in_year)
-        wwt_cost_per_hh = (sc.kukl_wwt_cost_per_mld / hh_per_mld) * mill
+        wwt_cost_per_hh = (avg_wwt_cost_per_mld / hh_per_mld) * mill
     else:
         wwt_cost_per_hh = 0
     weighted_cost_per_hh = (wwt_cost_per_hh + avg_sewer_cost) * (1 - si.capeff_gains_pct)

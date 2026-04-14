@@ -24,6 +24,25 @@ class CountryConfig(BaseModel):
     san_serv5_name: str = "No Service"
 
 
+class WaterProviderConfig(BaseModel):
+    name: str = "Provider"
+    share_pct: float = 0.0
+    current_hh: int = 0
+    network_cost_per_hh: float = 0.0
+    cost_per_mld_treatment: float = 0.0
+    existing_capacity_mld: float = 0.0
+
+
+class SanitationProviderConfig(BaseModel):
+    name: str = "Provider"
+    share_pct: float = 0.0
+    current_hh_sewer: int = 0
+    current_hh_wwt: int = 0
+    sewer_cost_per_hh: float = 0.0
+    wwt_cost_per_mld: float = 0.0
+    existing_wwt_capacity_mld: float = 0.0
+
+
 class PeriodInputs(BaseModel):
     model_start_year: int = 2011
     forecast_end_year: int = 2040
@@ -155,9 +174,13 @@ class SanitationServiceLevelInputs(BaseModel):
 
 
 class WaterTargetInputs(BaseModel):
-    kukl_pct: float = 1.0
-    wusc_pct: float = 0.0
-    non_piped_pct: float = 0.0
+    # Dynamic providers list (replaces kukl_pct/wusc_pct/non_piped_pct)
+    providers: List[WaterProviderConfig] = [
+        WaterProviderConfig(name="KUKL", share_pct=1.0, current_hh=262_212,
+            network_cost_per_hh=96_877.93, cost_per_mld_treatment=0.0, existing_capacity_mld=117.0),
+        WaterProviderConfig(name="WUSCs", share_pct=0.0, current_hh=126_781,
+            network_cost_per_hh=0.0, cost_per_mld_treatment=0.0, existing_capacity_mld=0.0),
+    ]
     planned_treatment_capacity_mld: float = 510.0
 
     target1_serv1: float = 0.66
@@ -174,8 +197,13 @@ class WaterTargetInputs(BaseModel):
 
 
 class SanitationTargetInputs(BaseModel):
-    sewered_kukl_pct: float = 1.0
-    sewered_wusc_pct: float = 0.0
+    # Dynamic providers list (replaces sewered_kukl_pct/sewered_wusc_pct)
+    providers: List[SanitationProviderConfig] = [
+        SanitationProviderConfig(name="KUKL", share_pct=1.0, current_hh_sewer=180_000,
+            current_hh_wwt=73_000, sewer_cost_per_hh=117_290.77, wwt_cost_per_mld=0.0, existing_wwt_capacity_mld=19.0),
+        SanitationProviderConfig(name="WUSCs", share_pct=0.0, current_hh_sewer=274_860,
+            current_hh_wwt=0, sewer_cost_per_hh=117_290.77, wwt_cost_per_mld=0.0, existing_wwt_capacity_mld=0.0),
+    ]
     onsite_collection_treatment_pct: float = 0.12
 
     target1_sserv1: float = 0.66

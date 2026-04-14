@@ -260,9 +260,24 @@
     "pct_sserv5_baseline": 0.2498
   },
   "water_targets": {
-    "kukl_pct": 1.0,
-    "wusc_pct": 0.0,
-    "non_piped_pct": 0.0,
+    "providers": [
+      {
+        "name": "KUKL",
+        "share_pct": 1.0,
+        "current_hh": 262212,
+        "network_cost_per_hh": 96877.93,
+        "cost_per_mld_treatment": 0.0,
+        "existing_capacity_mld": 117.0
+      },
+      {
+        "name": "WUSCs",
+        "share_pct": 0.0,
+        "current_hh": 126781,
+        "network_cost_per_hh": 0.0,
+        "cost_per_mld_treatment": 0.0,
+        "existing_capacity_mld": 0.0
+      }
+    ],
     "planned_treatment_capacity_mld": 510.0,
     "target1_serv1": 0.66,
     "target1_serv2": 0.34,
@@ -276,8 +291,26 @@
     "target2_serv5": 0.0
   },
   "sanitation_targets": {
-    "sewered_kukl_pct": 1.0,
-    "sewered_wusc_pct": 0.0,
+    "providers": [
+      {
+        "name": "KUKL",
+        "share_pct": 1.0,
+        "current_hh_sewer": 180000,
+        "current_hh_wwt": 73000,
+        "sewer_cost_per_hh": 117290.77,
+        "wwt_cost_per_mld": 0.0,
+        "existing_wwt_capacity_mld": 19.0
+      },
+      {
+        "name": "WUSCs",
+        "share_pct": 0.0,
+        "current_hh_sewer": 274860,
+        "current_hh_wwt": 0,
+        "sewer_cost_per_hh": 117290.77,
+        "wwt_cost_per_mld": 0.0,
+        "existing_wwt_capacity_mld": 0.0
+      }
+    ],
     "onsite_collection_treatment_pct": 0.12,
     "target1_sserv1": 0.66,
     "target1_sserv2": 0.34,

@@ -22,12 +22,17 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     water_per_hh = common['water_per_hh_year']
     avg_hh_size_2025 = common['avg_hh_size_2025']
 
+    # Weighted average costs from providers
+    total_share = sum(pr.share_pct for pr in wt.providers) or 1.0
+    avg_network_cost_per_hh = sum(pr.network_cost_per_hh * pr.share_pct for pr in wt.providers) / total_share if total_share > 0 else 0
+    avg_treatment_cost_per_mld = sum(pr.cost_per_mld_treatment * pr.share_pct for pr in wt.providers) / total_share if total_share > 0 else 0
+
     # ===== SECTION 0: BAU HHs forecast =====
     ws_hh = common['ws_hh_serv_historical'].copy()
 
     # BAU treated-piped from network investment (C|WS rows 29-34)
     network_inv = common['ws_bau_network_inv']
-    network_cost_per_hh = wc.kukl_network_cost_per_hh
+    network_cost_per_hh = avg_network_cost_per_hh if avg_network_cost_per_hh > 0 else (wt.providers[0].network_cost_per_hh if wt.providers else 0)
     bau_increase_treated = np.zeros(n)
     for t in range(n):
         if network_cost_per_hh > 0:
@@ -170,7 +175,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     service_gap = target_hh[0] - bau_hh[0]
 
     # ===== SECTION 2: Existing stock =====
-    existing_stock_baseline = (ws.hh_treated_piped_baseline / mill) * wc.kukl_network_cost_per_hh * (1 + tech.ws_non_hh_capex_pct)
+    existing_stock_baseline = (ws.hh_treated_piped_baseline / mill) * avg_network_cost_per_hh * (1 + tech.ws_non_hh_capex_pct)
     existing_stock = np.zeros(n)
     existing_stock[yi(p.baseline_year)] = existing_stock_baseline
 
@@ -178,52 +183,48 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     bau_investment = common['ws_bau_total'].copy()
 
     # ===== SECTION 4: Investment need & financing gap =====
-    # KUKL treatment capex
-    kukl_hh_target = np.zeros(n)
-    for t in range(n):
-        kukl_hh_target[t] = target_hh[0, t] * wt.kukl_pct
+    # Loop over all providers
+    total_provider_capex = np.zeros(n)
 
-    treatment_cap_needed = np.zeros(n)
-    add_treatment_cap = np.zeros(n)
-    capex_treatment = np.zeros(n)
-    for t in range(n):
-        if asis_flag[t] > 0 or perf_flag[t] > 0:
-            wph = common['water_per_hh_year_arr'][t] if 'water_per_hh_year_arr' in common else water_per_hh
-            treatment_cap_needed[t] = kukl_hh_target[t] * wph * mill / c.days_in_year / thou
-            needed = treatment_cap_needed[t] - tech.ws_existing_treatment_mld
-            add_cap = max(0, needed)
-            if t > 0 and add_cap > add_treatment_cap[t - 1]:
-                new_cap = add_cap - add_treatment_cap[t - 1]
-            else:
-                new_cap = 0
-            add_treatment_cap[t] = add_cap
-            if wc.kukl_cost_per_mld_treatment > 0:
-                capex_treatment[t] = new_cap * wc.kukl_cost_per_mld_treatment
+    for prov in wt.providers:
+        if prov.share_pct <= 0:
+            continue
 
-    # KUKL network capex
-    kukl_hh_current = ws.hh_kukl_baseline / mill
-    kukl_new_hh = np.zeros(n)
-    capex_network = np.zeros(n)
-    for t in range(n):
-        if (asis_flag[t] > 0 or perf_flag[t] > 0) and kukl_hh_target[t] > kukl_hh_current:
-            new = kukl_hh_target[t] - kukl_hh_current
-            if t > 0:
-                prev_new = max(0, kukl_hh_target[t - 1] - kukl_hh_current) if years[t - 1] > p.baseline_year else 0
-                kukl_new_hh[t] = max(0, new - prev_new)
-            else:
-                kukl_new_hh[t] = new
-            capex_network[t] = kukl_new_hh[t] * wc.kukl_network_cost_per_hh
+        prov_hh_target = np.zeros(n)
+        for t in range(n):
+            prov_hh_target[t] = target_hh[0, t] * prov.share_pct
 
-    kukl_total_capex = capex_treatment + capex_network
+        # Treatment capex
+        prov_add_cap = np.zeros(n)
+        prov_capex_treatment = np.zeros(n)
+        for t in range(n):
+            if asis_flag[t] > 0 or perf_flag[t] > 0:
+                wph = common['water_per_hh_year_arr'][t] if 'water_per_hh_year_arr' in common else water_per_hh
+                cap_needed = prov_hh_target[t] * wph * mill / c.days_in_year / thou
+                needed = max(0, cap_needed - prov.existing_capacity_mld)
+                if t > 0 and needed > prov_add_cap[t - 1]:
+                    new_cap = needed - prov_add_cap[t - 1]
+                else:
+                    new_cap = 0
+                prov_add_cap[t] = needed
+                if prov.cost_per_mld_treatment > 0:
+                    prov_capex_treatment[t] = new_cap * prov.cost_per_mld_treatment
 
-    # WUSCs (similar, using wusc_pct)
-    wusc_total_capex = np.zeros(n)  # 0 since wusc_pct = 0 by default
+        # Network capex
+        prov_hh_current = prov.current_hh / mill
+        prov_capex_network = np.zeros(n)
+        for t in range(n):
+            if (asis_flag[t] > 0 or perf_flag[t] > 0) and prov_hh_target[t] > prov_hh_current:
+                new = prov_hh_target[t] - prov_hh_current
+                prev_new = 0
+                if t > 0 and years[t - 1] > p.baseline_year:
+                    prev_new = max(0, prov_hh_target[t - 1] - prov_hh_current)
+                prov_capex_network[t] = max(0, new - prev_new) * prov.network_cost_per_hh
 
-    # Non-piped (similar, using non_piped_pct)
-    nonpiped_total_capex = np.zeros(n)  # 0 since non_piped_pct = 0 by default
+        total_provider_capex += prov_capex_treatment + prov_capex_network
 
     # Total investment need
-    new_capex_hh = kukl_total_capex + wusc_total_capex + nonpiped_total_capex
+    new_capex_hh = total_provider_capex
     new_capex_nonhh = new_capex_hh * tech.ws_non_hh_capex_pct
     total_new_capex = new_capex_hh + new_capex_nonhh
 
@@ -274,10 +275,10 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     additional_cash_ce = cash_improved - cash_bau
 
     # Cost per HH after efficiency
-    avg_network_cost = wc.kukl_network_cost_per_hh
-    if wc.kukl_cost_per_mld_treatment > 0:
+    avg_network_cost = avg_network_cost_per_hh
+    if avg_treatment_cost_per_mld > 0:
         hh_per_mld = (mill / c.cubic_meter_liters) / (water_per_hh / c.days_in_year)
-        treatment_cost_per_hh = (wc.kukl_cost_per_mld_treatment / hh_per_mld) * mill
+        treatment_cost_per_hh = (avg_treatment_cost_per_mld / hh_per_mld) * mill
     else:
         treatment_cost_per_hh = 0
     weighted_cost_per_hh = (treatment_cost_per_hh + avg_network_cost) * (1 - wi.capeff_gains_pct)
@@ -468,8 +469,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
         interv_loan_cum_hh_capex[t] = (interv_loan_cum_hh_capex[t - 1] if t > 0 else 0) + interv_loan_new_hh[t]
 
     interv_loan_hh = np.zeros(n)
-    if wc.kukl_network_cost_per_hh > 0:
-        interv_loan_hh = interv_loan_new_hh / wc.kukl_network_cost_per_hh
+    if avg_network_cost_per_hh > 0:
+        interv_loan_hh = interv_loan_new_hh / avg_network_cost_per_hh
     interv_loan_cum_hh = np.cumsum(interv_loan_hh)
     interv_loan_inv = loan_annual_inv.copy()
     interv_loan_cum_inv = np.cumsum(interv_loan_inv)
