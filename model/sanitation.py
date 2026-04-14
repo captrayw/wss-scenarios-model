@@ -58,7 +58,9 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
         for t in range(n):
             bau_sewer_increase[t] = san_bau_sewer[t] / sewer_cost_per_hh
 
-    current_sewer_hh = ss.hh_sewered_baseline / mill
+    # G45 in Excel = population-weighted sewered share × total_hh
+    _total_san = ss.hh_sewered_baseline + ss.hh_onsite_baseline
+    current_sewer_hh = (ss.hh_sewered_baseline / _total_san * inputs.population.total_hh_baseline) if _total_san > 0 else ss.hh_sewered_baseline / mill
     bau_sewer = np.zeros(n)
     bau_sewer[yi(p.baseline_year)] = current_sewer_hh
     for t in range(yi(p.baseline_year) + 1, n):
@@ -82,29 +84,37 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             bau_fst[t] = bau_fst[t - 1] + ann_m3 / (wastewater_per_hh * mill) if wastewater_per_hh > 0 else 0
 
     # BAU serv1 (safely managed) = sewer HHs + FST HHs for forecast
-    # For historical: use sewered baseline as anchor (Excel row 65/83)
+    # Excel row 65 formula:
+    #   baseline: G45 (baseline sewer HH)
+    #   baseline+1: row65[baseline+2] - annual_increment
+    #   baseline+2 onwards: sewer + FST (simple addition)
+    # Historical: backward interpolation using annual increment
     bau_serv1 = np.zeros(n)
-    # Excel G236 = sewered / (sewered + on-site) × total_hh_baseline
     total_san_hh = ss.hh_sewered_baseline + ss.hh_onsite_baseline
     pct_sewered = ss.hh_sewered_baseline / total_san_hh if total_san_hh > 0 else 0
     baseline_sewer_hh = pct_sewered * inputs.population.total_hh_baseline
-    for t in range(n):
-        if years[t] <= p.baseline_year:
-            # Historical: interpolate from sewered HH data
-            if years[t] == p.baseline_year:
-                bau_serv1[t] = baseline_sewer_hh
-            elif t > 0:
-                # Grow backwards from baseline using historical sewer CAGR
-                total_san_start = ss.hh_sewered_start + ss.hh_onsite_start
-                hist_sewer_start = (ss.hh_sewered_start / total_san_start * inputs.population.total_hh_start) if total_san_start > 0 else 0
-                n_hist_yr = p.baseline_year - p.model_start_year
-                if hist_sewer_start > 0 and n_hist_yr > 0:
-                    sewer_cagr = (baseline_sewer_hh / hist_sewer_start) ** (1 / n_hist_yr) - 1
-                    bau_serv1[t] = hist_sewer_start * (1 + sewer_cagr) ** (years[t] - p.model_start_year)
-                else:
-                    bau_serv1[t] = baseline_sewer_hh
-        else:
-            bau_serv1[t] = bau_sewer[t] + bau_fst[t]
+
+    # Annual increment = (sewer_2025 - sewer_2011) / n_years (O|Sanitation G25)
+    # Uses raw HH counts / million, NOT population-weighted shares
+    sewer_start_raw = ss.hh_sewered_start / mill
+    sewer_baseline_raw = ss.hh_sewered_baseline / mill
+    n_hist_yr = p.baseline_year - p.model_start_year
+    annual_sewer_increment = (sewer_baseline_raw - sewer_start_raw) / n_hist_yr if n_hist_yr > 0 else 0
+
+    bi = yi(p.baseline_year)
+    # First fill forecast years baseline+2 onwards (sewer + FST)
+    for t in range(bi + 2, n):
+        bau_serv1[t] = bau_sewer[t] + bau_fst[t]
+    # baseline+1: backward from baseline+2
+    if bi + 2 < n:
+        bau_serv1[bi + 1] = bau_serv1[bi + 2] - annual_sewer_increment
+    elif bi + 1 < n:
+        bau_serv1[bi + 1] = bau_sewer[bi + 1] + bau_fst[bi + 1]
+    # baseline: G45
+    bau_serv1[bi] = baseline_sewer_hh
+    # Historical: backward from baseline using annual increment
+    for t in range(bi - 1, -1, -1):
+        bau_serv1[t] = bau_serv1[t + 1] - annual_sewer_increment
 
     # BAU service levels (unadjusted, grow at historical CAGR)
     san_cagrs = common['san_cagrs_hist']
