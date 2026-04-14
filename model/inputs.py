@@ -518,6 +518,20 @@ class SanitationInterventionInputs(BaseModel):
     mf_adoption_rate: float = 0.5  # share of on-site HH change adopted via microfinance
 
 
+class CustomIntervention(BaseModel):
+    name: str = "Custom Intervention"
+    enabled: bool = True
+    sector: str = "water"  # "water", "sanitation", "both"
+    intervention_type: str = "fixed_annual"  # "fixed_annual", "revenue_stream", "per_hh_subsidy"
+    start_year: int = 2028
+    end_year: int = 2035
+    annual_amount: float = 0.0       # For fixed_annual: currency millions per year
+    starting_amount: float = 0.0     # For revenue_stream: starting currency millions
+    growth_rate: float = 0.05        # For revenue_stream: annual growth rate
+    subsidy_per_hh: float = 0.0      # For per_hh_subsidy: currency per HH
+    color: str = "#9333ea"
+
+
 class InterventionToggles(BaseModel):
     # Water supply
     ws_collection_nrw_enabled: bool = True
@@ -550,3 +564,4 @@ class ModelInputs(BaseModel):
     water_interventions: WaterInterventionInputs = WaterInterventionInputs()
     sanitation_interventions: SanitationInterventionInputs = SanitationInterventionInputs()
     toggles: InterventionToggles = InterventionToggles()
+    custom_interventions: List[CustomIntervention] = []

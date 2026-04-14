@@ -256,10 +256,75 @@ def calculate(inputs: ModelInputs) -> dict:
     ws_results = calculate_water_supply(inputs, common)
     san_results = calculate_sanitation(inputs, common)
 
-    return format_output(years, ws_results, san_results, common)
+    # Custom interventions
+    custom_ws = []
+    custom_san = []
+    for ci in inputs.custom_interventions:
+        if not ci.enabled:
+            continue
+
+        # Calculate cash available per year
+        cash = np.zeros(n_years)
+        for t in range(n_years):
+            y = years[t]
+            if ci.start_year <= y <= ci.end_year:
+                if ci.intervention_type == 'fixed_annual':
+                    cash[t] = ci.annual_amount
+                elif ci.intervention_type == 'revenue_stream':
+                    cash[t] = ci.starting_amount * (1 + ci.growth_rate) ** (y - ci.start_year)
+                elif ci.intervention_type == 'per_hh_subsidy':
+                    # Subsidy = number of new target HHs in this year * subsidy per HH / million
+                    target_serv1 = ws_results['target_hh'][0] if ci.sector in ('water', 'both') else san_results['target_hh'][0]
+                    delta = target_serv1[t] - target_serv1[t - 1] if t > 0 else 0
+                    cash[t] = max(0, delta) * ci.subsidy_per_hh
+
+        # Apply standard CAPEX allocation pattern
+        nonhh_rate = tech.ws_non_hh_capex_pct if ci.sector == 'water' else tech.san_non_hh_capex_pct
+        repl_rate = tech.ws_replacement_rate if ci.sector == 'water' else tech.san_replacement_rate
+
+        # Get weighted cost per HH from providers
+        if ci.sector in ('water', 'both'):
+            provs = inputs.water_targets.providers
+        else:
+            provs = inputs.sanitation_targets.providers
+        total_share = sum(pr.share_pct for pr in provs) or 1.0
+        if ci.sector in ('water', 'both'):
+            cost_per_hh = sum(pr.network_cost_per_hh * pr.share_pct for pr in provs) / total_share
+        else:
+            cost_per_hh = sum(pr.sewer_cost_per_hh * pr.share_pct for pr in provs) / total_share
+        cost_per_hh = cost_per_hh if cost_per_hh > 0 else 1  # avoid div by zero
+
+        new_hh_capex = np.zeros(n_years)
+        cum_hh_capex = np.zeros(n_years)
+        repl_capex = np.zeros(n_years)
+        for t in range(n_years):
+            repl_capex[t] = cum_hh_capex[t - 1] * repl_rate if t > 0 else 0
+            denom = 1 + nonhh_rate
+            if denom > 0 and cash[t] > 0:
+                new_hh_capex[t] = max(0, (cash[t] - repl_capex[t] - repl_capex[t] * nonhh_rate) / denom)
+            cum_hh_capex[t] = (cum_hh_capex[t - 1] if t > 0 else 0) + new_hh_capex[t]
+
+        add_hh = new_hh_capex / cost_per_hh
+        cum_hh = np.cumsum(add_hh)
+
+        result = {
+            'name': ci.name,
+            'color': ci.color,
+            'additional_hh': add_hh.tolist(),
+            'cumulative_hh': cum_hh.tolist(),
+            'investment': cash.tolist(),
+            'cumulative_inv': np.cumsum(cash).tolist(),
+        }
+
+        if ci.sector in ('water', 'both'):
+            custom_ws.append(result)
+        if ci.sector in ('sanitation', 'both'):
+            custom_san.append(result)
+
+    return format_output(years, ws_results, san_results, common, custom_ws, custom_san)
 
 
-def format_output(years, ws, san, common):
+def format_output(years, ws, san, common, custom_ws=None, custom_san=None):
     years_list = years.tolist()
     forecast_mask = [int(y) for y in years if y > common['years'][0]]
 
@@ -305,6 +370,7 @@ def format_output(years, ws, san, common):
                     'investment': to_list(ws['interv_loan_inv']),
                     'cumulative_inv': to_list(ws['interv_loan_cum_inv']),
                 },
+                'custom': custom_ws or [],
             },
         },
         'sanitation': {
@@ -347,6 +413,7 @@ def format_output(years, ws, san, common):
                     'investment': to_list(san['interv_mf_inv']),
                     'cumulative_inv': to_list(san['interv_mf_cum_inv']),
                 },
+                'custom': custom_san or [],
             },
         },
     }

@@ -554,5 +554,6 @@
     "san_tariff_enabled": true,
     "san_borrowing_enabled": true,
     "san_microfinance_enabled": true
-  }
+  },
+  "custom_interventions": []
 }
