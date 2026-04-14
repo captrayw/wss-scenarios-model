@@ -282,12 +282,24 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
 
     # Excel G260 = I|G G247/mill = HHs with on-site + collection (NOT all on-site)
     current_onsite_hh = ss.hh_onsite_with_collection / mill if ss.hh_onsite_with_collection > 0 else ss.hh_onsite_baseline / mill
+    # On-site capex has 3 SEPARATE components (Excel rows 256-304):
+    # 1. Facility capex: only when target > current on-site HHs (G260)
+    # 2. Emptying capex: when target > current HHs with emptying (G269) — almost always
+    # 3. FST capex: based on treatment capacity needs
+
+    current_emptied_hh = ss.hh_fs_emptied_baseline / mill  # G269 = I|G G248/mill
+
     capex_onsite_facility = np.zeros(n)
     capex_emptying = np.zeros(n)
     capex_fst = np.zeros(n)
-    add_fst_cap = np.zeros(n)  # separate tracker for FST capacity (not WWT)
+    add_fst_cap = np.zeros(n)
+
     for t in range(n):
-        if (asis_flag[t] > 0 or perf_flag[t] > 0) and onsite_hh_target[t] > current_onsite_hh:
+        if not (asis_flag[t] > 0 or perf_flag[t] > 0):
+            continue
+
+        # 1. Facility capex (R265): only when on-site target > current on-site with collection
+        if onsite_hh_target[t] > current_onsite_hh:
             new_onsite = onsite_hh_target[t] - current_onsite_hh
             prev_onsite = 0
             if t > 0 and years[t - 1] > p.baseline_year:
@@ -295,20 +307,31 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             incremental = max(0, new_onsite - prev_onsite)
             capex_onsite_facility[t] = incremental * sc.onsite_facility_capex
 
-            # FS collection trucks
-            fs_generated = onsite_hh_target[t] * fs_per_hh_year
-            trips_needed = (fs_generated * mill) / sc.truck_size_m3 if sc.truck_size_m3 > 0 else 0
-            trucks_needed = np.ceil(trips_needed / sc.trips_per_truck_year) if sc.trips_per_truck_year > 0 else 0
+        # 2. Emptying capex (R282): based on R268 (= target for on-site provider)
+        # R270 = IF(R268 > G269, R268 - G269, 0) — HHs needing emptying
+        # Uses the sewered target as proxy for all HHs needing emptying services
+        emptying_target = onsite_hh_target[t]  # R268 = R197
+        if emptying_target > current_emptied_hh:
+            hh_needing_emptying = emptying_target - current_emptied_hh
+            # R273 = FS generated = hh × FS per HH/yr
+            fs_generated = hh_needing_emptying * fs_per_hh_year  # R273 (m3 mill)
+            # R274 = FS to collect = generated / emptying frequency
+            fs_to_collect = fs_generated / sc.emptying_frequency_years if sc.emptying_frequency_years > 0 else 0  # R274
+            trips_needed = (fs_to_collect * mill) / sc.truck_size_m3 if sc.truck_size_m3 > 0 else 0  # R276
+            trucks_needed = int(np.ceil(trips_needed / sc.trips_per_truck_year)) if sc.trips_per_truck_year > 0 else 0  # R278
             if t > 0:
-                prev_fs = max(0, (onsite_hh_target[t - 1] if years[t - 1] > p.baseline_year else 0)) * fs_per_hh_year
-                prev_trips = (prev_fs * mill) / sc.truck_size_m3 if sc.truck_size_m3 > 0 else 0
-                prev_trucks = np.ceil(prev_trips / sc.trips_per_truck_year) if sc.trips_per_truck_year > 0 else 0
+                prev_emptying = max(0, (onsite_hh_target[t - 1] if years[t - 1] > p.baseline_year else 0) - current_emptied_hh)
+                prev_fs = prev_emptying * fs_per_hh_year
+                prev_collect = prev_fs / sc.emptying_frequency_years if sc.emptying_frequency_years > 0 else 0
+                prev_trips = (prev_collect * mill) / sc.truck_size_m3 if sc.truck_size_m3 > 0 else 0
+                prev_trucks = int(np.ceil(prev_trips / sc.trips_per_truck_year)) if sc.trips_per_truck_year > 0 else 0
                 new_trucks = max(0, trucks_needed - prev_trucks)
             else:
                 new_trucks = trucks_needed
             capex_emptying[t] = new_trucks * sc.fs_truck_cost_mill
 
-            # FS treatment (uses its own capacity tracker, separate from WWT)
+        # 3. FST capex (R298): treatment capacity based on ALL on-site target HHs
+        if onsite_hh_target[t] > 0:
             fst_cap_needed = onsite_hh_target[t] * fs_per_hh_year * mill / c.days_in_year / thou
             fst_needed = max(0, fst_cap_needed - tech.san_existing_fst_mld)
             if t > 0:
