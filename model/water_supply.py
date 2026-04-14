@@ -2,6 +2,11 @@ import numpy as np
 from .inputs import ModelInputs
 
 
+def sg(arr, t, default=0.0):
+    if arr is None or t < 0: return default
+    return arr[t] if t < len(arr) else (arr[-1] if arr else default)
+
+
 def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     p = inputs.period
     c = inputs.constants
@@ -10,6 +15,7 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     wc = inputs.water_costs
     wi = inputs.water_interventions
     tech = inputs.technical
+    macro = inputs.macro
     yi = common['yi']
     years = common['years']
     n = common['n_years']
@@ -379,6 +385,28 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
     interv_ce_nrw_inv = additional_cash_ce + cash_nrw
     interv_ce_nrw_cum_inv = np.cumsum(interv_ce_nrw_inv)
 
+    # NRW reduction cost (Row 362) = unit_cost × (volume_reduced / days_in_year)
+    # G357 = NRW unit cost in NPR per m3/day = USD cost × exchange_rate at baseline
+    nrw_unit_cost_npr = wi.nrw_capex_unit_cost_npr if wi.nrw_capex_unit_cost_npr > 0 else wi.nrw_capex_unit_cost_usd * sg(macro.exchange_rate, yi(p.baseline_year), 130)
+    nrw_reduction_capex = np.zeros(n)
+    for t in range(1, n):
+        vol_reduced = physical_reduction[t] - physical_reduction[t - 1]
+        if vol_reduced > 0:
+            # Lag the volume reduced
+            lag_t = min(t + wi.nrw_lag_years, n - 1) if wi.nrw_lag_years > 0 else t
+            # Convert annual m3 to m3/day for the unit cost
+            nrw_reduction_capex[t] = nrw_unit_cost_npr * (vol_reduced * mill / c.days_in_year) / mill
+
+    # NRW connecting total capex (Row 376) = new_hh + replacement + non-hh
+    nrw_connecting_capex = np.zeros(n)
+    for t in range(n):
+        repl_t = nrw_cum_hh_capex[t - 1] * repl_rate if t > 0 else 0
+        nonhh_t = (nrw_new_hh_capex[t] + repl_t) * nonhh_rate
+        nrw_connecting_capex[t] = nrw_new_hh_capex[t] + repl_t + nonhh_t
+
+    # Total intervention capex deducted from BAU for CapEff (Row 408)
+    nrw_total_intervention_capex = nrw_reduction_capex + nrw_connecting_capex
+
     # 5.2 Capital efficiency
     capeff_flag = np.array([1.0 if years[t] >= wi.capeff_start_year else 0.0 for t in range(n)])
 
@@ -393,7 +421,8 @@ def calculate_water_supply(inputs: ModelInputs, common: dict) -> dict:
 
     for t in range(n):
         if perf_flag[t] > 0:
-            remaining = capeff_bau[t] - capeff_repl
+            # Excel Row 412: remaining = BAU - replacement_stock - NRW_intervention_capex
+            remaining = capeff_bau[t] - capeff_repl - nrw_total_intervention_capex[t]
             capeff_remaining[t] = max(0, remaining)
 
         capeff_repl_arr[t] = capeff_cum_hh[t - 1] * repl_rate if t > 0 else 0

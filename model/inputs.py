@@ -445,7 +445,7 @@ class WaterInterventionInputs(BaseModel):
     nrw_commercial_loss_pct: float = 0.50
     nrw_lag_years: int = 1
     nrw_capex_unit_cost_usd: float = 510.29
-    nrw_capex_unit_cost_npr: float = 0.0
+    nrw_capex_unit_cost_npr: float = 73_809.07  # G673: USD × inflation-adj × exchange_rate
     nrw_avg_consumption_per_hh: float = 0.0
     nrw_dist_cost_pct_serv1: float = 0.0
     nrw_dist_cost_pct_serv2: float = 0.0
