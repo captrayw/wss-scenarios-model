@@ -407,7 +407,8 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
 
     # 5.2 Capital efficiency
     capeff_flag = np.array([1.0 if years[t] >= si.capeff_start_year else 0.0 for t in range(n)])
-    capeff_repl_const = existing_stock_baseline * repl_rate
+    # Excel G372 = 0 (no replacement for sanitation CapEff, unlike water)
+    capeff_repl_const = 0
 
     capeff_remaining = np.zeros(n)
     capeff_new_hh = np.zeros(n)
@@ -415,6 +416,7 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     capeff_repl_arr = np.zeros(n)
     for t in range(n):
         if perf_flag[t] > 0:
+            # Excel R376 = IF(BAU > repl, (BAU-repl) × perf_flag, 0) — no intervention deduction
             capeff_remaining[t] = max(0, bau_investment[t] - capeff_repl_const)
         capeff_repl_arr[t] = capeff_cum_hh[t - 1] * repl_rate if t > 0 else 0
         denom = 1 + nonhh_rate
@@ -453,7 +455,15 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
             avg_san_tariff[t] = avg_san_tariff[t - 1]
 
     tariff_increase = avg_san_tariff - san_tariff_current
-    ww_billed_nrw = ww_billed  # use sanitation-specific WW volume
+    # Excel R422 = water_sold_nrw × (1 + nrw_increase) × wastewater_factor
+    # Uses water supply NRW data, not sanitation direct volume
+    ws_billed = common.get('ws_billed_water', ww_billed)
+    ws_nrw = common.get('ws_water_sold_nrw')
+    if ws_nrw is not None:
+        nrw_increase = (ws_nrw / ws_billed - 1) if ws_billed > 0 else np.zeros(n)
+        ww_billed_nrw = ws_nrw * (1 + nrw_increase) * tech.san_wastewater_factor
+    else:
+        ww_billed_nrw = np.full(n, ww_billed)
     additional_rev_tariff = ww_billed_nrw * tariff_increase
     cash_tariff = additional_rev_tariff * ce_rate
 
@@ -478,11 +488,11 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
     loan_flag = np.array([1.0 if si.loan_start_year <= years[t] <= si.loan_end_year else 0.0 for t in range(n)])
 
     est_cash_inflow = avg_san_tariff * ww_billed_nrw * ce_rate
-    est_cash_outflow = np.array([si.loan_avg_cost_per_ww_billed * ww_billed_nrw for _ in range(n)])
+    est_cash_outflow = si.loan_avg_cost_per_ww_billed * ww_billed_nrw
     fcf = est_cash_inflow - est_cash_outflow
 
     loan_start_idx = yi(si.loan_start_year)
-    fcf_at_start = fcf[min(loan_start_idx + 1, n - 1)] if loan_start_idx + 1 < n else 0
+    fcf_at_start = float(fcf[min(loan_start_idx + 1, n - 1)]) if loan_start_idx + 1 < n else 0
 
     if si.loan_dscr > 0 and fcf_at_start > 0:
         annual_payment = fcf_at_start / si.loan_dscr
@@ -500,15 +510,16 @@ def calculate_sanitation(inputs: ModelInputs, common: dict) -> dict:
         if si.loan_start_year <= years[t] < si.loan_start_year + si.loan_investment_years:
             loan_annual[t] = loan_amount / si.loan_investment_years if si.loan_investment_years > 0 else 0
 
+    # Excel uses lagged cumulative: R478 = SUM(J:prev_col), R479 = prev_R478 × rate
     interv_loan_new_hh = np.zeros(n)
     interv_loan_cum_capex = np.zeros(n)
     interv_loan_repl = np.zeros(n)
     for t in range(n):
+        interv_loan_cum_capex[t] = sum(interv_loan_new_hh[s] for s in range(t))
         interv_loan_repl[t] = interv_loan_cum_capex[t - 1] * repl_rate if t > 0 else 0
         denom = 1 + nonhh_rate
         if denom > 0 and loan_annual[t] > 0:
             interv_loan_new_hh[t] = max(0, (loan_annual[t] - interv_loan_repl[t] - interv_loan_repl[t] * nonhh_rate) / denom)
-        interv_loan_cum_capex[t] = (interv_loan_cum_capex[t - 1] if t > 0 else 0) + interv_loan_new_hh[t]
 
     interv_loan_hh = np.zeros(n)
     if sc.sewer_network_cost_per_hh > 0:

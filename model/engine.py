@@ -267,6 +267,13 @@ def calculate(inputs: ModelInputs) -> dict:
     common['water_per_hh_year_arr'] = water_per_hh_year_arr
 
     ws_results = calculate_water_supply(inputs, common)
+
+    # Pass water supply NRW/tariff/CE data to sanitation (needed for san tariff and loan)
+    common['ws_water_sold_nrw'] = ws_results.get('water_sold_nrw')
+    common['ws_ce_rate'] = ws_results.get('ce_rate')
+    common['ws_avg_tariff'] = ws_results.get('avg_tariff')
+    common['ws_billed_water'] = inputs.water_interventions.ce_water_sold_mld * inputs.constants.days_in_year / inputs.constants.cubic_meter_liters
+
     san_results = calculate_sanitation(inputs, common)
 
     # Custom interventions
