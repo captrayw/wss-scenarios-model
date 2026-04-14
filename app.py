@@ -83,6 +83,16 @@ def save_profile(name: str, inputs: ModelInputs):
     return {"status": "saved", "name": name}
 
 
+@app.delete("/api/profiles/{name}")
+def delete_profile(name: str):
+    """Delete a saved country profile."""
+    filepath = os.path.join(os.path.dirname(__file__), "profiles", f"{name}.json")
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        return {"status": "deleted", "name": name}
+    return {"error": "Profile not found"}
+
+
 @app.post("/api/calculate")
 def run_calculation(inputs: ModelInputs):
     return calculate(inputs)
