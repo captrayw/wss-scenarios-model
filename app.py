@@ -19,6 +19,12 @@ app.add_middleware(
 )
 
 
+@app.get("/api/countries")
+def get_countries():
+    from countries import COUNTRIES
+    return COUNTRIES
+
+
 @app.get("/api/defaults")
 def get_defaults():
     return ModelInputs().model_dump()
