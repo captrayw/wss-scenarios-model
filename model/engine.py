@@ -341,6 +341,35 @@ def calculate(inputs: ModelInputs) -> dict:
         if ci.sector in ('sanitation', 'both'):
             custom_san.append(result)
 
+    # Compute total intervention cash mobilized per sector (for adjusted financing gap)
+    n_years = len(years)
+    ws_interv_total = np.zeros(n_years)
+    for key in ['interv_ce_nrw_inv', 'interv_tariff_inv', 'interv_loan_inv']:
+        if key in ws_results:
+            ws_interv_total += np.array(ws_results[key])
+    # CapEff: no direct cash, but it uses BAU more efficiently — count the HH value
+    if 'interv_capeff_hh' in ws_results:
+        # Convert additional HHs back to cash equivalent
+        ws_avg_cost = sum(pr.network_cost_per_hh * pr.share_pct for pr in inputs.water_targets.providers) / (sum(pr.share_pct for pr in inputs.water_targets.providers) or 1)
+        ws_interv_total += np.array(ws_results['interv_capeff_hh']) * ws_avg_cost
+    for ci in custom_ws:
+        ws_interv_total += np.array(ci['investment'])
+
+    san_interv_total = np.zeros(n_years)
+    for key in ['interv_ce_inv', 'interv_tariff_inv', 'interv_loan_inv', 'interv_mf_inv']:
+        if key in san_results:
+            san_interv_total += np.array(san_results[key])
+    if 'interv_capeff_hh' in san_results:
+        san_avg_cost = sum(pr.sewer_cost_per_hh * pr.share_pct for pr in inputs.sanitation_targets.providers) / (sum(pr.share_pct for pr in inputs.sanitation_targets.providers) or 1)
+        san_interv_total += np.array(san_results['interv_capeff_hh']) * san_avg_cost
+    for ci in custom_san:
+        san_interv_total += np.array(ci['investment'])
+
+    ws_results['interv_total_inv'] = ws_interv_total
+    ws_results['adjusted_financing_gap'] = np.maximum(0, np.array(ws_results['financing_gap']) - ws_interv_total)
+    san_results['interv_total_inv'] = san_interv_total
+    san_results['adjusted_financing_gap'] = np.maximum(0, np.array(san_results['financing_gap']) - san_interv_total)
+
     return format_output(years, ws_results, san_results, common, custom_ws, custom_san)
 
 
@@ -365,6 +394,8 @@ def format_output(years, ws, san, common, custom_ws=None, custom_san=None):
             'investment_need': to_list(ws['investment_need']),
             'bau_investment': to_list(ws['bau_investment']),
             'financing_gap': to_list(ws['financing_gap']),
+            'adjusted_financing_gap': to_list(ws['adjusted_financing_gap']),
+            'interv_total_inv': to_list(ws['interv_total_inv']),
             'cumulative_inv_need': to_list(ws['cumulative_inv_need']),
             'cumulative_bau_inv': to_list(ws['cumulative_bau_inv']),
             'interventions': {
@@ -402,6 +433,8 @@ def format_output(years, ws, san, common, custom_ws=None, custom_san=None):
             'investment_need': to_list(san['investment_need']),
             'bau_investment': to_list(san['bau_investment']),
             'financing_gap': to_list(san['financing_gap']),
+            'adjusted_financing_gap': to_list(san['adjusted_financing_gap']),
+            'interv_total_inv': to_list(san['interv_total_inv']),
             'cumulative_inv_need': to_list(san['cumulative_inv_need']),
             'cumulative_bau_inv': to_list(san['cumulative_bau_inv']),
             'interventions': {
